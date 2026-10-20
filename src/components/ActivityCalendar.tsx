@@ -377,7 +377,7 @@ export default function ActivityCalendar({
         {calendarData.offDaysCount > 0 && (
           <span className="inline-flex items-center gap-1 rounded-lg bg-rose-50 px-2 py-0.5 font-semibold text-rose-700">
             <span className="h-1.5 w-1.5 rounded-full bg-rose-500" />
-            {calendarData.offDaysCount} Libur / Cuti
+            {calendarData.offDaysCount} Libur / Cuti Bersama
           </span>
         )}
       </div>
@@ -389,10 +389,8 @@ export default function ActivityCalendar({
             <div
               key={d}
               className={`pb-1 text-[10px] font-bold uppercase sm:text-[11px] ${
-                i === 6
+                i === 5 || i === 6
                   ? "text-rose-500"
-                  : i === 5
-                  ? "text-slate-400"
                   : "text-slate-500"
               }`}
             >
@@ -503,7 +501,7 @@ export default function ActivityCalendar({
                       </span>
                     ) : hasLeave ? (
                       <span className="block truncate text-[8px] font-bold text-amber-700 sm:text-[9px]">
-                        Cuti
+                        Cuti Bersama
                       </span>
                     ) : (
                       <span className="text-[9px] opacity-50">-</span>
@@ -525,7 +523,7 @@ export default function ActivityCalendar({
           </span>
           <span className="inline-flex items-center gap-1 mr-1.5 text-amber-700 font-medium">
             <span className="h-2.5 w-2.5 rounded border border-amber-200 bg-amber-50" />
-            Cuti
+            Cuti Bersama
           </span>
           <span>Kosong</span>
           <span className="h-3 w-3 rounded border border-dashed border-slate-300 bg-slate-50" />
@@ -683,7 +681,7 @@ export default function ActivityCalendar({
                   </span>
                   <span className="truncate font-medium">{h.name}</span>
                   <span className="shrink-0 text-[9px] opacity-75">
-                    ({isHoliday ? "Libur" : "Cuti"})
+                    ({isHoliday ? "Libur" : "Cuti Bersama"})
                   </span>
                 </button>
               );
