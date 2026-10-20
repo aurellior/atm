@@ -20,7 +20,6 @@ import {
   Pencil,
   Plus,
   Trash2,
-  UserCheck,
 } from "lucide-react";
 
 interface TaskCardProps {
@@ -232,8 +231,13 @@ export default function TaskCard({
 
                 <div className="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] text-slate-500 sm:text-xs">
                   {task.assignor?.name && (
-                    <span className="inline-flex items-center gap-1">
-                      <UserCheck className="h-3.5 w-3.5 shrink-0 text-slate-400" />
+                    <span className="inline-flex items-center gap-1.5">
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img
+                        src="/images/profile.jpg"
+                        alt={task.assignor.name}
+                        className="h-4 w-4 shrink-0 rounded-full object-cover ring-1 ring-slate-200"
+                      />
                       <span className="truncate max-w-[140px] sm:max-w-none">
                         {task.assignor.name}
                       </span>

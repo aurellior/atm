@@ -2,7 +2,7 @@
 
 import React from "react";
 import { useAuth } from "@/context/AuthContext";
-import { CheckSquare, LogOut, User } from "lucide-react";
+import { CheckSquare, LogOut } from "lucide-react";
 
 export default function Navbar() {
   const { user, logout } = useAuth();
@@ -29,10 +29,13 @@ export default function Navbar() {
 
         {/* User Profile Pill & Logout */}
         <div className="flex shrink-0 items-center gap-1.5 sm:gap-2.5">
-          <div className="flex max-w-[175px] items-center gap-2 rounded-full border border-slate-200/80 bg-slate-50 px-2.5 py-1 sm:max-w-[260px] sm:px-3 sm:py-1.5">
-            <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-brand-100 text-brand-700">
-              <User className="h-3.5 w-3.5" />
-            </div>
+          <div className="flex max-w-[185px] items-center gap-2 rounded-full border border-slate-200/80 bg-slate-50 py-1 pl-1.5 pr-2.5 sm:max-w-[260px] sm:py-1.5 sm:pl-2 sm:pr-3">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src="/images/profile.jpg"
+              alt={user.name}
+              className="h-6 w-6 shrink-0 rounded-full object-cover ring-1 ring-slate-200 sm:h-7 sm:w-7"
+            />
             <div className="min-w-0 text-left">
               <p className="truncate text-xs font-bold leading-tight text-slate-800">
                 {user.name}
