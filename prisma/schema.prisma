@@ -1,0 +1,210 @@
+generator client {
+  provider        = "prisma-client-js"
+  previewFeatures = ["views"]
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Employees {
+  id                    BigInt           @id @default(autoincrement())
+  role_id               BigInt
+  team_id               BigInt
+  name                  String           @db.VarChar(255)
+  email                 String           @unique @db.VarChar(255)
+  password              String           @db.VarChar(255)
+  createdAt             DateTime         @default(now())
+  verifiedAt            DateTime?
+  updatedAt             DateTime?        @updatedAt
+  deletedAt             DateTime?
+  lead_id               BigInt?
+  activities            Activities[]
+  activitiesAsValidator Activities[]     @relation("validator")
+  lead                  Employees?       @relation("EmployeeLead", fields: [lead_id], references: [id])
+  subordinates          Employees[]      @relation("EmployeeLead")
+  role                  Roles            @relation(fields: [role_id], references: [id])
+  team                  Teams            @relation(fields: [team_id], references: [id])
+  projects              ProjectsJoined[]
+  assignments           Tasks[]          @relation("assignor")
+  tasks                 Tasks[]
+
+  @@map("employees")
+}
+
+model Teams {
+  id          BigInt      @id @default(autoincrement())
+  name        String      @unique @db.VarChar(255)
+  description String?
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime?   @updatedAt
+  deletedAt   DateTime?
+  employees   Employees[]
+
+  @@map("teams")
+}
+
+model Roles {
+  id          BigInt      @id @default(autoincrement())
+  name        String      @unique @db.VarChar(255)
+  description String?
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime?   @updatedAt
+  deletedAt   DateTime?
+  employees   Employees[]
+
+  @@map("roles")
+}
+
+model Projects {
+  id              BigInt           @id @default(autoincrement())
+  name            String           @unique @db.VarChar(255)
+  type            ProjectType
+  start_date      DateTime?
+  target_end_date DateTime?
+  is_opt          Boolean          @default(false)
+  progress        Int              @default(0)
+  created_at      DateTime         @default(now())
+  updated_at      DateTime?        @updatedAt
+  deleted_at      DateTime?
+  employeesJoined ProjectsJoined[]
+  tasks           Tasks[]
+
+  @@map("projects")
+}
+
+model ProjectsJoined {
+  id          BigInt    @id @default(autoincrement())
+  employee_id BigInt
+  project_id  BigInt
+  priority    BigInt
+  created_at  DateTime  @default(now())
+  updated_at  DateTime? @updatedAt
+  deleted_at  DateTime?
+  employee    Employees @relation(fields: [employee_id], references: [id])
+  project     Projects  @relation(fields: [project_id], references: [id])
+
+  @@map("projects_joined")
+}
+
+model Tasks {
+  id              BigInt       @id @default(autoincrement())
+  employee_id     BigInt
+  assignor_id     BigInt
+  project_id      BigInt
+  name            String       @db.VarChar(255)
+  start_date      DateTime?
+  target_end_date DateTime?
+  actual_end_date DateTime?
+  progress        Int
+  created_at      DateTime     @default(now())
+  updated_at      DateTime?    @updatedAt
+  deleted_at      DateTime?
+  activities      Activities[]
+  assignor        Employees    @relation("assignor", fields: [assignor_id], references: [id])
+  employee        Employees    @relation(fields: [employee_id], references: [id])
+  project         Projects     @relation(fields: [project_id], references: [id])
+
+  @@map("tasks")
+}
+
+model Activities {
+  id               BigInt          @id @default(autoincrement())
+  employee_id      BigInt
+  task_id          BigInt
+  validator_id     BigInt
+  activity_type_id BigInt
+  name             String          @db.VarChar(255)
+  start_date       DateTime?
+  target_end_date  DateTime?
+  actual_end_date  DateTime?
+  complete_status  ActivityStatus
+  notes            String?
+  created_at       DateTime        @default(now())
+  updated_at       DateTime?       @updatedAt
+  deleted_at       DateTime?
+  progress         Int?            @default(dbgenerated("\nCASE\n    WHEN (complete_status = 'DONE'::\"ActivityStatus\") THEN 100\n    WHEN (complete_status = 'IN_PROGRESS'::\"ActivityStatus\") THEN 0\n    ELSE NULL::integer\nEND"))
+  activityType     ActivitiesTypes @relation(fields: [activity_type_id], references: [id])
+  employee         Employees       @relation(fields: [employee_id], references: [id])
+  task             Tasks           @relation(fields: [task_id], references: [id])
+  validator        Employees       @relation("validator", fields: [validator_id], references: [id])
+  validations      Validations[]
+
+  @@map("activities")
+}
+
+model ActivitiesTypes {
+  id          BigInt       @id @default(autoincrement())
+  name        String       @unique @db.VarChar(255)
+  description String?
+  created_at  DateTime     @default(now())
+  updated_at  DateTime?    @updatedAt
+  deleted_at  DateTime?
+  activities  Activities[]
+
+  @@map("activities_types")
+}
+
+model Validations {
+  id            BigInt           @id @default(autoincrement())
+  activity_id   BigInt
+  deadline      DateTime?
+  comment       String?
+  attachment    String?          @db.VarChar(128)
+  status        ValidationStatus
+  created_at    DateTime         @default(now())
+  updated_at    DateTime?        @updatedAt
+  deleted_at    DateTime?
+  rejectReasons RejectReasons[]
+  activity      Activities       @relation(fields: [activity_id], references: [id])
+
+  @@map("validations")
+}
+
+model RejectReasons {
+  id            BigInt      @id @default(autoincrement())
+  validation_id BigInt
+  reason        String?
+  created_at    DateTime    @default(now())
+  updated_at    DateTime?   @updatedAt
+  deleted_at    DateTime?
+  validation    Validations @relation(fields: [validation_id], references: [id])
+
+  @@map("reject_reasons")
+}
+
+view EmployeeSummary {
+  employee_id         BigInt @id
+  total_project       BigInt
+  total_task          BigInt
+  total_task_finished BigInt
+
+  @@map("employee_summary")
+}
+
+/// The underlying view does not contain a valid unique identifier and can therefore currently not be handled by Prisma Client.
+view TotalTaskByLeadId {
+  employee_id      BigInt  @unique
+  employee_name    String? @db.VarChar(255)
+  employee_lead_id BigInt
+  total_task       BigInt
+
+  @@map("total_task_by_lead_id")
+}
+
+enum ProjectType {
+  INTERNAL
+  EXTERNAL
+}
+
+enum ActivityStatus {
+  IN_PROGRESS
+  DONE
+}
+
+enum ValidationStatus {
+  REQUEST
+  ACCEPT
+  REJECT
+}
