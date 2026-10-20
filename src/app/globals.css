@@ -2,16 +2,42 @@
 @tailwind components;
 @tailwind utilities;
 
-body {
-  @apply bg-slate-50 text-slate-900 antialiased;
-}
+@layer base {
+  html {
+    -webkit-tap-highlight-color: transparent;
+  }
 
-/* Prevent iOS Safari / mobile browsers from auto-zooming on input focus */
-@media screen and (max-width: 768px) {
+  body {
+    @apply bg-slate-50 text-slate-900 antialiased;
+    overflow-x: hidden;
+  }
+
+  /* Fix iOS Safari <input>, <select>, <textarea> auto-zoom & WebKit date input overflow */
   input,
   select,
   textarea {
     font-size: 16px !important;
+  }
+
+  @media screen and (min-width: 640px) {
+    input,
+    select,
+    textarea {
+      font-size: 0.875rem !important;
+    }
+  }
+
+  input[type="date"] {
+    -webkit-appearance: none;
+    appearance: none;
+    min-width: 0;
+    width: 100%;
+    min-height: 2.75rem;
+    background-color: #ffffff;
+  }
+
+  input[type="date"]::-webkit-date-and-time-value {
+    text-align: left;
   }
 }
 
@@ -22,6 +48,11 @@ body {
 
 /* Hide scrollbar for IE, Edge and Firefox */
 .no-scrollbar {
-  -ms-overflow-style: none;  /* IE and Edge */
-  scrollbar-width: none;  /* Firefox */
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+/* Safe area bottom padding for iPhone 15 Home Indicator */
+.pb-safe {
+  padding-bottom: max(1.25rem, env(safe-area-inset-bottom));
 }

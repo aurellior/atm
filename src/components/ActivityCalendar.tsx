@@ -5,6 +5,7 @@ import { ActivityItem } from "@/types";
 import {
   Calendar as CalendarIcon,
   CheckCircle2,
+  ChevronDown,
   ChevronLeft,
   ChevronRight,
   Clock,
@@ -51,10 +52,9 @@ export default function ActivityCalendar({
 }: ActivityCalendarProps) {
   const now = new Date();
   const [viewYear, setViewYear] = useState(now.getFullYear());
-  const [viewMonth, setViewMonth] = useState(now.getMonth()); // 0 = Jan, 8 = Sep
+  const [viewMonth, setViewMonth] = useState(now.getMonth());
   const [selectedDateKey, setSelectedDateKey] = useState<string | null>(null);
 
-  // Map YYYY-MM-DD -> ActivityItem[]
   const activitiesByDate = useMemo(() => {
     const map = new Map<string, ActivityItem[]>();
 
@@ -77,7 +77,6 @@ export default function ActivityCalendar({
 
       addActivityToDate(startStr, act);
 
-      // If activity spans multiple days (up to 31 days), mark each active date
       if (endStr && endStr >= startStr) {
         const startDate = new Date(`${startStr}T00:00:00`);
         const endDate = new Date(`${endStr}T00:00:00`);
@@ -103,10 +102,8 @@ export default function ActivityCalendar({
     return map;
   }, [activities]);
 
-  // Build calendar cells for (viewYear, viewMonth)
   const calendarData = useMemo(() => {
     const daysInMonth = new Date(viewYear, viewMonth + 1, 0).getDate();
-    // Convert Sunday (0) .. Saturday (6) to Monday (0) .. Sunday (6)
     const firstDayJs = new Date(viewYear, viewMonth, 1).getDay();
     const leadingEmptyDays = (firstDayJs + 6) % 7;
 
@@ -185,91 +182,105 @@ export default function ActivityCalendar({
     ? activitiesByDate.get(selectedDateKey) || []
     : [];
 
-  // GitHub Contribution color level helper
   const getContributionStyle = (count: number, isWeekend: boolean) => {
     if (count === 0) {
       return isWeekend
-        ? "bg-slate-50/60 border-slate-100 text-slate-300 hover:border-slate-200"
-        : "bg-slate-50 border-dashed border-slate-200 text-slate-500 hover:border-slate-300 hover:bg-slate-100/70";
+        ? "bg-slate-50/50 border-slate-100 text-slate-300"
+        : "bg-slate-50 border-dashed border-slate-200 text-slate-500 hover:border-slate-300";
     }
     if (count === 1) {
-      return "bg-emerald-100 border-emerald-300 text-emerald-900 hover:bg-emerald-200/80";
+      return "bg-emerald-100 border-emerald-300 text-emerald-900";
     }
     if (count <= 3) {
-      return "bg-emerald-300 border-emerald-400 text-emerald-950 hover:bg-emerald-400/80";
+      return "bg-emerald-300 border-emerald-400 text-emerald-950";
     }
-    return "bg-emerald-600 border-emerald-700 text-white hover:bg-emerald-700";
+    return "bg-emerald-600 border-emerald-700 text-white";
   };
 
   return (
-    <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5">
+    <section className="rounded-2xl border border-slate-200/90 bg-white p-3.5 shadow-sm sm:p-5">
       {/* Header: Title + Month/Year Controls */}
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <div className="flex items-center gap-2.5">
-          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-emerald-50 text-emerald-600">
-            <CalendarIcon className="h-5 w-5" />
-          </div>
-          <div>
-            <div className="flex items-center gap-2">
-              <h2 className="text-sm font-bold text-slate-900 sm:text-base">
-                Kalender Kontribusi Activity
-              </h2>
-              {loading && (
-                <Loader2 className="h-3.5 w-3.5 animate-spin text-emerald-600" />
-              )}
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2.5">
+            <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-emerald-50 text-emerald-600 sm:h-9 sm:w-9">
+              <CalendarIcon className="h-4 w-4 sm:h-5 sm:w-5" />
             </div>
-            <p className="text-xs text-slate-500">
-              Pantau tanggal yang sudah terisi activity & tanggal yang masih
-              kosong
-            </p>
+            <div>
+              <div className="flex items-center gap-1.5">
+                <h2 className="text-sm font-bold text-slate-900 sm:text-base">
+                  Kalender Activity
+                </h2>
+                {loading && (
+                  <Loader2 className="h-3.5 w-3.5 animate-spin text-emerald-600" />
+                )}
+              </div>
+              <p className="text-[11px] text-slate-500 sm:text-xs">
+                Cek tanggal terisi & tanggal kosong
+              </p>
+            </div>
           </div>
+
+          <button
+            type="button"
+            onClick={handleTodayMonth}
+            className="rounded-xl border border-slate-200 bg-slate-50 px-2.5 py-1.5 text-[11px] font-bold text-slate-700 active:scale-95 sm:hidden"
+          >
+            Hari Ini
+          </button>
         </div>
 
-        {/* Month & Year Navigation */}
-        <div className="flex flex-wrap items-center gap-1.5">
+        {/* Sleek Month & Year Bar (Fits 100% cleanly on iPhone 15 393px) */}
+        <div className="flex items-center gap-1.5">
           <button
             type="button"
             onClick={handlePrevMonth}
-            className="rounded-xl border border-slate-200 p-1.5 text-slate-600 hover:bg-slate-50"
+            className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-slate-200 text-slate-600 active:scale-95 hover:bg-slate-50"
             title="Bulan Sebelumnya"
           >
             <ChevronLeft className="h-4 w-4" />
           </button>
 
-          <select
-            value={viewMonth}
-            onChange={(e) => {
-              setSelectedDateKey(null);
-              setViewMonth(Number(e.target.value));
-            }}
-            className="rounded-xl border border-slate-200 bg-white px-2.5 py-1.5 text-xs font-bold text-slate-800 focus:border-brand-500 focus:outline-none"
-          >
-            {MONTH_NAMES.map((m, idx) => (
-              <option key={m} value={idx}>
-                {m}
-              </option>
-            ))}
-          </select>
+          <div className="relative flex-1 sm:w-36 sm:flex-none">
+            <select
+              value={viewMonth}
+              onChange={(e) => {
+                setSelectedDateKey(null);
+                setViewMonth(Number(e.target.value));
+              }}
+              className="h-9 w-full appearance-none rounded-xl border border-slate-200 bg-slate-50/70 pl-3 pr-7 text-xs font-bold text-slate-800 focus:border-brand-500 focus:outline-none"
+            >
+              {MONTH_NAMES.map((m, idx) => (
+                <option key={m} value={idx}>
+                  {m}
+                </option>
+              ))}
+            </select>
+            <ChevronDown className="pointer-events-none absolute right-2.5 top-2.5 h-4 w-4 text-slate-400" />
+          </div>
 
-          <select
-            value={viewYear}
-            onChange={(e) => {
-              setSelectedDateKey(null);
-              setViewYear(Number(e.target.value));
-            }}
-            className="rounded-xl border border-slate-200 bg-white px-2.5 py-1.5 text-xs font-bold text-slate-800 focus:border-brand-500 focus:outline-none"
-          >
-            {[2024, 2025, 2026, 2027].map((yr) => (
-              <option key={yr} value={yr}>
-                {yr}
-              </option>
-            ))}
-          </select>
+          <div className="relative w-24 shrink-0">
+            <select
+              value={viewYear}
+              onChange={(e) => {
+                setSelectedDateKey(null);
+                setViewYear(Number(e.target.value));
+              }}
+              className="h-9 w-full appearance-none rounded-xl border border-slate-200 bg-slate-50/70 pl-3 pr-7 text-xs font-bold text-slate-800 focus:border-brand-500 focus:outline-none"
+            >
+              {[2024, 2025, 2026, 2027].map((yr) => (
+                <option key={yr} value={yr}>
+                  {yr}
+                </option>
+              ))}
+            </select>
+            <ChevronDown className="pointer-events-none absolute right-2.5 top-2.5 h-4 w-4 text-slate-400" />
+          </div>
 
           <button
             type="button"
             onClick={handleNextMonth}
-            className="rounded-xl border border-slate-200 p-1.5 text-slate-600 hover:bg-slate-50"
+            className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-slate-200 text-slate-600 active:scale-95 hover:bg-slate-50"
             title="Bulan Berikutnya"
           >
             <ChevronRight className="h-4 w-4" />
@@ -278,60 +289,44 @@ export default function ActivityCalendar({
           <button
             type="button"
             onClick={handleTodayMonth}
-            className="rounded-xl border border-slate-200 bg-slate-50 px-2.5 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-100"
+            className="hidden h-9 items-center rounded-xl border border-slate-200 bg-slate-50 px-3 text-xs font-semibold text-slate-700 hover:bg-slate-100 sm:inline-flex"
           >
             Hari Ini
           </button>
         </div>
       </div>
 
-      {/* Month Summary Pills */}
-      <div className="mt-3.5 flex flex-wrap items-center justify-between gap-2 border-y border-slate-100 py-2.5 text-xs">
-        <div className="flex flex-wrap items-center gap-2">
-          <span className="inline-flex items-center gap-1.5 rounded-lg bg-emerald-50 px-2.5 py-1 font-semibold text-emerald-700">
-            <span className="h-2 w-2 rounded-full bg-emerald-500" />
-            {calendarData.filledDaysCount} Hari Terisi
+      {/* Month Summary Pills & Legend */}
+      <div className="mt-3 flex flex-wrap items-center justify-between gap-2 border-y border-slate-100 py-2 text-[11px] sm:text-xs">
+        <div className="flex flex-wrap items-center gap-1.5">
+          <span className="inline-flex items-center gap-1 rounded-lg bg-emerald-50 px-2 py-0.5 font-semibold text-emerald-700">
+            <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
+            {calendarData.filledDaysCount} Terisi
           </span>
-          <span className="inline-flex items-center gap-1.5 rounded-lg bg-slate-100 px-2.5 py-1 font-semibold text-slate-600">
-            <span className="h-2 w-2 rounded-full border border-dashed border-slate-400 bg-white" />
+          <span className="inline-flex items-center gap-1 rounded-lg bg-slate-100 px-2 py-0.5 font-semibold text-slate-600">
+            <span className="h-1.5 w-1.5 rounded-full border border-dashed border-slate-400 bg-white" />
             {calendarData.emptyWorkdaysCount} Hari Kerja Kosong
-          </span>
-          <span className="text-slate-400">
-            ({calendarData.totalMonthActivities} activity di{" "}
-            {MONTH_NAMES[viewMonth]})
           </span>
         </div>
 
         {/* GitHub-style Color Legend */}
-        <div className="flex items-center gap-1.5 text-[11px] text-slate-400">
+        <div className="flex items-center gap-1 text-[10px] text-slate-400 sm:text-[11px]">
           <span>Kosong</span>
-          <span
-            className="h-3.5 w-3.5 rounded border border-dashed border-slate-300 bg-slate-50"
-            title="0 Activity (Kosong)"
-          />
-          <span
-            className="h-3.5 w-3.5 rounded border border-emerald-300 bg-emerald-100"
-            title="1 Activity"
-          />
-          <span
-            className="h-3.5 w-3.5 rounded border border-emerald-400 bg-emerald-300"
-            title="2-3 Activity"
-          />
-          <span
-            className="h-3.5 w-3.5 rounded border border-emerald-700 bg-emerald-600"
-            title="4+ Activity"
-          />
+          <span className="h-3 w-3 rounded border border-dashed border-slate-300 bg-slate-50" />
+          <span className="h-3 w-3 rounded border border-emerald-300 bg-emerald-100" />
+          <span className="h-3 w-3 rounded border border-emerald-400 bg-emerald-300" />
+          <span className="h-3 w-3 rounded border border-emerald-700 bg-emerald-600" />
           <span>Banyak</span>
         </div>
       </div>
 
       {/* Calendar Grid (7 Columns: Sen..Min) */}
-      <div className="mt-3">
-        <div className="grid grid-cols-7 gap-1.5 text-center sm:gap-2">
+      <div className="mt-2.5">
+        <div className="grid grid-cols-7 gap-1 text-center sm:gap-2">
           {DAY_HEADERS.map((d, i) => (
             <div
               key={d}
-              className={`pb-1 text-[11px] font-bold uppercase ${
+              className={`pb-1 text-[10px] font-bold uppercase sm:text-[11px] ${
                 i >= 5 ? "text-slate-400" : "text-slate-500"
               }`}
             >
@@ -339,12 +334,10 @@ export default function ActivityCalendar({
             </div>
           ))}
 
-          {/* Empty cells before the 1st of the month */}
           {Array.from({ length: calendarData.leadingEmptyDays }).map((_, i) => (
-            <div key={`empty-${i}`} className="h-11 sm:h-14" />
+            <div key={`empty-${i}`} className="h-10 sm:h-14" />
           ))}
 
-          {/* Days of the month */}
           {calendarData.days.map(({ day, dateKey, isWeekend, items }) => {
             const count = items.length;
             const isSelected = selectedDateKey === dateKey;
@@ -360,16 +353,16 @@ export default function ActivityCalendar({
                     prev === dateKey ? null : dateKey
                   )
                 }
-                className={`relative flex h-11 flex-col items-center justify-between rounded-xl border p-1.5 transition sm:h-14 sm:p-2 ${colorClass} ${
+                className={`relative flex h-10 flex-col items-center justify-between rounded-xl border p-1 transition active:scale-95 sm:h-14 sm:p-2 ${colorClass} ${
                   isSelected
                     ? "ring-2 ring-brand-600 ring-offset-1"
                     : isToday
-                    ? "ring-2 ring-slate-900/40"
+                    ? "ring-1 ring-slate-900/50"
                     : ""
                 }`}
               >
                 <div className="flex w-full items-center justify-between">
-                  <span className="text-xs font-bold leading-none sm:text-sm">
+                  <span className="text-[11px] font-bold leading-none sm:text-sm">
                     {day}
                   </span>
                   {isToday && (
@@ -377,16 +370,14 @@ export default function ActivityCalendar({
                       className={`h-1.5 w-1.5 rounded-full ${
                         count >= 4 ? "bg-white" : "bg-brand-600"
                       }`}
-                      title="Hari ini"
                     />
                   )}
                 </div>
 
-                {/* Activity count indicator */}
                 <div className="w-full text-right">
                   {count > 0 ? (
                     <span
-                      className={`inline-block rounded px-1 text-[10px] font-bold leading-tight ${
+                      className={`inline-block rounded px-1 text-[9px] font-bold leading-tight sm:text-[10px] ${
                         count >= 4
                           ? "bg-white/20 text-white"
                           : "bg-black/5 text-current"
@@ -395,7 +386,7 @@ export default function ActivityCalendar({
                       {count} <span className="hidden sm:inline">act</span>
                     </span>
                   ) : (
-                    <span className="text-[10px] opacity-60">-</span>
+                    <span className="text-[9px] opacity-50">-</span>
                   )}
                 </div>
               </button>
@@ -406,11 +397,10 @@ export default function ActivityCalendar({
 
       {/* Selected Date Activity Details Panel */}
       {selectedDateKey && (
-        <div className="mt-4 rounded-xl border border-slate-200 bg-slate-50 p-3.5">
+        <div className="mt-3.5 rounded-xl border border-slate-200 bg-slate-50 p-3">
           <div className="flex items-center justify-between border-b border-slate-200/80 pb-2">
-            <h3 className="text-xs font-bold text-slate-800 sm:text-sm">
-              Activity Tanggal{" "}
-              {Number(selectedDateKey.split("-")[2])}{" "}
+            <h3 className="text-xs font-bold text-slate-800">
+              Activity {Number(selectedDateKey.split("-")[2])}{" "}
               {MONTH_NAMES[Number(selectedDateKey.split("-")[1]) - 1]}{" "}
               {selectedDateKey.split("-")[0]} ({selectedDayItems.length})
             </h3>
@@ -424,30 +414,29 @@ export default function ActivityCalendar({
           </div>
 
           {selectedDayItems.length === 0 ? (
-            <p className="py-4 text-center text-xs text-slate-500">
-              Tanggal ini masih <strong>kosong</strong> (belum ada activity yang
-              tercatat).
+            <p className="py-3 text-center text-xs text-slate-500">
+              Tanggal ini masih <strong>kosong</strong> (belum ada activity).
             </p>
           ) : (
-            <ul className="mt-2.5 space-y-2">
+            <ul className="mt-2 space-y-1.5">
               {selectedDayItems.map((act) => {
                 const isDone = act.complete_status === "DONE";
                 return (
                   <li
                     key={act.id}
-                    className="flex items-start justify-between gap-3 rounded-xl border border-slate-200 bg-white p-2.5 text-xs"
+                    className="flex items-start justify-between gap-2.5 rounded-xl border border-slate-200 bg-white p-2.5 text-xs"
                   >
-                    <div className="flex items-start gap-2">
+                    <div className="flex min-w-0 items-start gap-2">
                       {isDone ? (
                         <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-emerald-600" />
                       ) : (
                         <Clock className="mt-0.5 h-4 w-4 shrink-0 text-amber-500" />
                       )}
-                      <div>
-                        <p className="font-semibold text-slate-900">
+                      <div className="min-w-0">
+                        <p className="font-semibold text-slate-900 leading-snug">
                           {act.name}
                         </p>
-                        <p className="mt-0.5 text-[11px] text-slate-500">
+                        <p className="mt-0.5 truncate text-[11px] text-slate-500">
                           {act.project_name ? `${act.project_name} • ` : ""}
                           {act.task_name || act.task?.name || ""}
                         </p>

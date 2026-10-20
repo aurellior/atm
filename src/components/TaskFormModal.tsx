@@ -3,7 +3,7 @@
 import React, { useEffect, useState } from "react";
 import { api } from "@/lib/api";
 import { EmployeeOption, TaskItem } from "@/types";
-import { ClipboardList, Loader2, X } from "lucide-react";
+import { ChevronDown, ClipboardList, Loader2, X } from "lucide-react";
 
 interface TaskFormModalProps {
   isOpen: boolean;
@@ -49,6 +49,7 @@ export default function TaskFormModal({
 
   useEffect(() => {
     if (!isOpen) return;
+    document.body.style.overflow = "hidden";
     setError("");
 
     if (initialTask) {
@@ -75,6 +76,10 @@ export default function TaskFormModal({
       setTargetDate(getTodayStr());
       setActualDate("");
     }
+
+    return () => {
+      document.body.style.overflow = "";
+    };
   }, [isOpen, initialTask, employees]);
 
   if (!isOpen) return null;
@@ -127,129 +132,150 @@ export default function TaskFormModal({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-end justify-center bg-slate-900/50 p-0 sm:items-center sm:p-4">
-      <div className="w-full max-w-lg rounded-t-2xl bg-white p-5 shadow-xl sm:rounded-2xl sm:p-6">
-        <div className="flex items-center justify-between border-b border-slate-100 pb-3">
-          <div className="flex items-center gap-2.5">
-            <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-brand-50 text-brand-600">
+    <div
+      className="fixed inset-0 z-50 flex items-end justify-center bg-slate-900/60 backdrop-blur-[2px] sm:items-center sm:p-4"
+      onClick={onClose}
+    >
+      <div
+        onClick={(e) => e.stopPropagation()}
+        className="flex max-h-[90dvh] w-full max-w-lg flex-col rounded-t-3xl bg-white shadow-2xl sm:rounded-2xl"
+      >
+        {/* Mobile Drag Handle */}
+        <div className="mx-auto mt-2.5 h-1.5 w-10 shrink-0 rounded-full bg-slate-200 sm:hidden" />
+
+        {/* Header */}
+        <div className="flex shrink-0 items-center justify-between border-b border-slate-100 px-5 pb-3.5 pt-3 sm:pt-5">
+          <div className="flex min-w-0 items-center gap-2.5">
+            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-brand-50 text-brand-600">
               <ClipboardList className="h-5 w-5" />
             </div>
-            <div>
-              <h2 className="text-base font-bold text-slate-900">
+            <div className="min-w-0">
+              <h2 className="truncate text-base font-bold text-slate-900">
                 {isEdit ? "Edit Task" : "Tambah Task Baru"}
               </h2>
               {projectName && (
-                <p className="text-xs text-slate-500">Project: {projectName}</p>
+                <p className="truncate text-xs text-slate-500">
+                  Project: {projectName}
+                </p>
               )}
             </div>
           </div>
           <button
+            type="button"
             onClick={onClose}
-            className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-100 hover:text-slate-600"
+            className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-slate-100 text-slate-500 hover:bg-slate-200"
           >
-            <X className="h-5 w-5" />
+            <X className="h-4 w-4" />
           </button>
         </div>
 
-        <form onSubmit={handleSubmit} className="mt-4 space-y-3.5">
-          {error && (
-            <div className="rounded-lg bg-red-50 px-3 py-2 text-xs font-medium text-red-600">
-              {error}
-            </div>
-          )}
+        {/* Scrollable Form Body */}
+        <form
+          onSubmit={handleSubmit}
+          className="flex flex-1 flex-col overflow-y-auto overscroll-contain px-5 pt-4 pb-safe sm:pb-5"
+        >
+          <div className="space-y-3.5">
+            {error && (
+              <div className="rounded-xl bg-red-50 px-3.5 py-2.5 text-xs font-medium text-red-600">
+                {error}
+              </div>
+            )}
 
-          <div>
-            <label className="mb-1 block text-xs font-semibold text-slate-700">
-              Nama Task <span className="text-red-500">*</span>
-            </label>
-            <input
-              type="text"
-              placeholder="Contoh: Integrasi API Pembayaran"
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              autoFocus
-              required
-              className="w-full rounded-xl border border-slate-300 px-3.5 py-2.5 text-sm text-slate-900 placeholder:text-slate-400 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-100"
-            />
-          </div>
-
-          <div>
-            <label className="mb-1 block text-xs font-semibold text-slate-700">
-              Pemberi Tugas (Assignor) <span className="text-red-500">*</span>
-            </label>
-            <select
-              value={assignorId}
-              onChange={(e) => setAssignorId(e.target.value)}
-              required
-              className="w-full rounded-xl border border-slate-300 bg-white px-3.5 py-2.5 text-sm text-slate-900 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-100"
-            >
-              <option value="" disabled>
-                -- Pilih Assignor --
-              </option>
-              {employees.map((emp) => (
-                <option key={emp.id} value={emp.id}>
-                  {emp.name}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             <div>
-              <label className="mb-1 block text-xs font-semibold text-slate-700">
-                Tanggal Mulai <span className="text-red-500">*</span>
+              <label className="mb-1.5 block text-xs font-semibold text-slate-700">
+                Nama Task <span className="text-red-500">*</span>
               </label>
               <input
-                type="date"
-                value={startDate}
-                onChange={(e) => setStartDate(e.target.value)}
+                type="text"
+                placeholder="Contoh: Integrasi API Pembayaran"
+                value={name}
+                onChange={(e) => setName(e.target.value)}
                 required
-                className="w-full rounded-xl border border-slate-300 px-3 py-2 text-sm text-slate-900 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-100"
+                className="h-11 w-full rounded-xl border border-slate-300 bg-white px-3.5 text-slate-900 placeholder:text-slate-400 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-100"
               />
             </div>
 
             <div>
-              <label className="mb-1 block text-xs font-semibold text-slate-700">
-                Target Selesai <span className="text-red-500">*</span>
+              <label className="mb-1.5 block text-xs font-semibold text-slate-700">
+                Pemberi Tugas (Assignor) <span className="text-red-500">*</span>
+              </label>
+              <div className="relative">
+                <select
+                  value={assignorId}
+                  onChange={(e) => setAssignorId(e.target.value)}
+                  required
+                  className="h-11 w-full appearance-none rounded-xl border border-slate-300 bg-white pl-3.5 pr-9 text-slate-900 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-100"
+                >
+                  <option value="" disabled>
+                    -- Pilih Assignor --
+                  </option>
+                  {employees.map((emp) => (
+                    <option key={emp.id} value={emp.id}>
+                      {emp.name}
+                    </option>
+                  ))}
+                </select>
+                <ChevronDown className="pointer-events-none absolute right-3 top-3.5 h-4 w-4 text-slate-400" />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-2.5">
+              <div className="min-w-0">
+                <label className="mb-1.5 block text-xs font-semibold text-slate-700">
+                  Tanggal Mulai <span className="text-red-500">*</span>
+                </label>
+                <input
+                  type="date"
+                  value={startDate}
+                  onChange={(e) => setStartDate(e.target.value)}
+                  required
+                  className="h-11 w-full min-w-0 rounded-xl border border-slate-300 bg-white px-3 text-slate-900 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-100"
+                />
+              </div>
+
+              <div className="min-w-0">
+                <label className="mb-1.5 block text-xs font-semibold text-slate-700">
+                  Target Selesai <span className="text-red-500">*</span>
+                </label>
+                <input
+                  type="date"
+                  value={targetDate}
+                  onChange={(e) => setTargetDate(e.target.value)}
+                  required
+                  className="h-11 w-full min-w-0 rounded-xl border border-slate-300 bg-white px-3 text-slate-900 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-100"
+                />
+              </div>
+            </div>
+
+            <div className="min-w-0">
+              <label className="mb-1.5 block text-xs font-semibold text-slate-700">
+                Tanggal Selesai Aktual{" "}
+                <span className="font-normal text-slate-400">(Opsional)</span>
               </label>
               <input
                 type="date"
-                value={targetDate}
-                onChange={(e) => setTargetDate(e.target.value)}
-                required
-                className="w-full rounded-xl border border-slate-300 px-3 py-2 text-sm text-slate-900 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-100"
+                value={actualDate}
+                onChange={(e) => setActualDate(e.target.value)}
+                className="h-11 w-full min-w-0 rounded-xl border border-slate-300 bg-white px-3 text-slate-900 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-100"
               />
             </div>
           </div>
 
-          <div>
-            <label className="mb-1 block text-xs font-semibold text-slate-700">
-              Tanggal Selesai Aktual{" "}
-              <span className="font-normal text-slate-400">(Opsional)</span>
-            </label>
-            <input
-              type="date"
-              value={actualDate}
-              onChange={(e) => setActualDate(e.target.value)}
-              className="w-full rounded-xl border border-slate-300 px-3 py-2 text-sm text-slate-900 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-100"
-            />
-          </div>
-
-          <div className="flex items-center gap-2 pt-2">
+          <div className="mt-6 flex items-center gap-2.5 pt-2">
             <button
               type="button"
               onClick={onClose}
-              className="w-1/2 rounded-xl border border-slate-200 py-2.5 text-xs font-semibold text-slate-600 hover:bg-slate-50"
+              className="h-11 w-1/2 rounded-xl border border-slate-200 text-xs font-bold text-slate-600 transition active:scale-95 hover:bg-slate-50"
             >
               Batal
             </button>
             <button
               type="submit"
               disabled={submitting}
-              className="flex w-1/2 items-center justify-center gap-1.5 rounded-xl bg-brand-600 py-2.5 text-xs font-semibold text-white shadow-sm hover:bg-brand-700 disabled:opacity-50"
+              className="flex h-11 w-1/2 items-center justify-center gap-1.5 rounded-xl bg-brand-600 text-xs font-bold text-white shadow-sm transition active:scale-95 hover:bg-brand-700 disabled:opacity-50"
             >
               {submitting && <Loader2 className="h-4 w-4 animate-spin" />}
-              {isEdit ? "Simpan Perubahan" : "Buat Task"}
+              {isEdit ? "Simpan" : "Buat Task"}
             </button>
           </div>
         </form>

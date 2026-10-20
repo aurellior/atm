@@ -3,7 +3,7 @@
 import React, { useEffect, useState } from "react";
 import { api } from "@/lib/api";
 import { JoinedProject, MasterProject } from "@/types";
-import { FolderPlus, Loader2, X } from "lucide-react";
+import { ChevronDown, FolderPlus, Loader2, X } from "lucide-react";
 
 interface JoinProjectModalProps {
   isOpen: boolean;
@@ -27,6 +27,7 @@ export default function JoinProjectModal({
 
   useEffect(() => {
     if (!isOpen) return;
+    document.body.style.overflow = "hidden";
     setError("");
     setLoadingList(true);
     api
@@ -43,6 +44,10 @@ export default function JoinProjectModal({
       })
       .catch((err) => setError(err.message || "Gagal memuat daftar project"))
       .finally(() => setLoadingList(false));
+
+    return () => {
+      document.body.style.overflow = "";
+    };
   }, [isOpen, joinedProjects]);
 
   if (!isOpen) return null;
@@ -72,11 +77,21 @@ export default function JoinProjectModal({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-end justify-center bg-slate-900/50 p-0 sm:items-center sm:p-4">
-      <div className="w-full max-w-md rounded-t-2xl bg-white p-5 shadow-xl sm:rounded-2xl sm:p-6">
-        <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+    <div
+      className="fixed inset-0 z-50 flex items-end justify-center bg-slate-900/60 backdrop-blur-[2px] sm:items-center sm:p-4"
+      onClick={onClose}
+    >
+      <div
+        onClick={(e) => e.stopPropagation()}
+        className="flex max-h-[88dvh] w-full max-w-md flex-col rounded-t-3xl bg-white shadow-2xl sm:rounded-2xl"
+      >
+        {/* Mobile Drag Indicator */}
+        <div className="mx-auto mt-2.5 h-1.5 w-10 shrink-0 rounded-full bg-slate-200 sm:hidden" />
+
+        {/* Header */}
+        <div className="flex shrink-0 items-center justify-between border-b border-slate-100 px-5 pb-3.5 pt-3 sm:pt-5">
           <div className="flex items-center gap-2.5">
-            <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-brand-50 text-brand-600">
+            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-brand-50 text-brand-600">
               <FolderPlus className="h-5 w-5" />
             </div>
             <div>
@@ -89,83 +104,93 @@ export default function JoinProjectModal({
             </div>
           </div>
           <button
+            type="button"
             onClick={onClose}
-            className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-100 hover:text-slate-600"
+            className="flex h-8 w-8 items-center justify-center rounded-full bg-slate-100 text-slate-500 hover:bg-slate-200"
           >
-            <X className="h-5 w-5" />
+            <X className="h-4 w-4" />
           </button>
         </div>
 
-        <form onSubmit={handleSubmit} className="mt-4 space-y-4">
-          {error && (
-            <div className="rounded-lg bg-red-50 px-3 py-2 text-xs font-medium text-red-600">
-              {error}
-            </div>
-          )}
-
-          <div>
-            <label className="mb-1.5 block text-xs font-semibold text-slate-700">
-              Pilih Project
-            </label>
-            {loadingList ? (
-              <div className="flex items-center gap-2 py-3 text-xs text-slate-500">
-                <Loader2 className="h-4 w-4 animate-spin" /> Memuat daftar
-                project...
+        {/* Form Body */}
+        <form
+          onSubmit={handleSubmit}
+          className="flex flex-1 flex-col overflow-y-auto overscroll-contain px-5 pt-4 pb-safe sm:pb-5"
+        >
+          <div className="space-y-4">
+            {error && (
+              <div className="rounded-xl bg-red-50 px-3.5 py-2.5 text-xs font-medium text-red-600">
+                {error}
               </div>
-            ) : availableProjects.length === 0 ? (
-              <div className="rounded-lg border border-slate-200 bg-slate-50 p-3 text-xs text-slate-500">
-                Semua project yang tersedia sudah Anda ikuti.
-              </div>
-            ) : (
-              <select
-                value={selectedProjectId}
-                onChange={(e) => setSelectedProjectId(e.target.value)}
-                className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2.5 text-sm text-slate-800 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-100"
-                required
-              >
-                {availableProjects.map((proj) => (
-                  <option key={proj.id} value={proj.id}>
-                    {proj.name} ({proj.type})
-                  </option>
-                ))}
-              </select>
             )}
-          </div>
 
-          <div>
-            <label className="mb-1.5 block text-xs font-semibold text-slate-700">
-              Prioritas Project
-            </label>
-            <div className="grid grid-cols-4 gap-2">
-              {["1", "2", "3", "4"].map((p) => (
-                <button
-                  key={p}
-                  type="button"
-                  onClick={() => setPriority(p)}
-                  className={`rounded-xl border py-2 text-xs font-bold transition ${
-                    priority === p
-                      ? "border-brand-600 bg-brand-50 text-brand-700"
-                      : "border-slate-200 bg-white text-slate-600 hover:bg-slate-50"
-                  }`}
-                >
-                  P{p}
-                </button>
-              ))}
+            <div>
+              <label className="mb-1.5 block text-xs font-semibold text-slate-700">
+                Pilih Project <span className="text-red-500">*</span>
+              </label>
+              {loadingList ? (
+                <div className="flex h-11 items-center gap-2 rounded-xl border border-slate-200 bg-slate-50 px-3.5 text-xs text-slate-500">
+                  <Loader2 className="h-4 w-4 animate-spin text-brand-600" />
+                  Memuat daftar project...
+                </div>
+              ) : availableProjects.length === 0 ? (
+                <div className="rounded-xl border border-slate-200 bg-slate-50 p-3.5 text-xs text-slate-500">
+                  Semua project yang tersedia sudah Anda ikuti.
+                </div>
+              ) : (
+                <div className="relative">
+                  <select
+                    value={selectedProjectId}
+                    onChange={(e) => setSelectedProjectId(e.target.value)}
+                    className="h-11 w-full appearance-none rounded-xl border border-slate-300 bg-white pl-3.5 pr-9 text-slate-900 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-100"
+                    required
+                  >
+                    {availableProjects.map((proj) => (
+                      <option key={proj.id} value={proj.id}>
+                        {proj.name} ({proj.type})
+                      </option>
+                    ))}
+                  </select>
+                  <ChevronDown className="pointer-events-none absolute right-3 top-3.5 h-4 w-4 text-slate-400" />
+                </div>
+              )}
+            </div>
+
+            <div>
+              <label className="mb-1.5 block text-xs font-semibold text-slate-700">
+                Prioritas Project
+              </label>
+              <div className="grid grid-cols-4 gap-2">
+                {["1", "2", "3", "4"].map((p) => (
+                  <button
+                    key={p}
+                    type="button"
+                    onClick={() => setPriority(p)}
+                    className={`h-11 rounded-xl border text-xs font-bold transition active:scale-95 ${
+                      priority === p
+                        ? "border-brand-600 bg-brand-600 text-white shadow-sm"
+                        : "border-slate-200 bg-slate-50 text-slate-700 hover:bg-slate-100"
+                    }`}
+                  >
+                    P{p}
+                  </button>
+                ))}
+              </div>
             </div>
           </div>
 
-          <div className="flex items-center gap-2 pt-2">
+          <div className="mt-6 flex items-center gap-2.5 pt-2">
             <button
               type="button"
               onClick={onClose}
-              className="w-1/2 rounded-xl border border-slate-200 py-2.5 text-xs font-semibold text-slate-600 hover:bg-slate-50"
+              className="h-11 w-1/2 rounded-xl border border-slate-200 text-xs font-bold text-slate-600 transition active:scale-95 hover:bg-slate-50"
             >
               Batal
             </button>
             <button
               type="submit"
               disabled={submitting || availableProjects.length === 0}
-              className="flex w-1/2 items-center justify-center gap-1.5 rounded-xl bg-brand-600 py-2.5 text-xs font-semibold text-white shadow-sm hover:bg-brand-700 disabled:opacity-50"
+              className="flex h-11 w-1/2 items-center justify-center gap-1.5 rounded-xl bg-brand-600 text-xs font-bold text-white shadow-sm transition active:scale-95 hover:bg-brand-700 disabled:opacity-50"
             >
               {submitting && <Loader2 className="h-4 w-4 animate-spin" />}
               Gabung Project
