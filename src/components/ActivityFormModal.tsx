@@ -450,8 +450,6 @@ export default function ActivityFormModal({
                 <input
                   type="date"
                   value={startDate}
-                  min={toInputDate(task.start_date) || undefined}
-                  max={toInputDate(task.target_end_date) || undefined}
                   onChange={(e) => {
                     const nextStart = e.target.value;
                     setStartDate(nextStart);
@@ -471,8 +469,7 @@ export default function ActivityFormModal({
                 <input
                   type="date"
                   value={targetDate}
-                  min={startDate || toInputDate(task.start_date) || undefined}
-                  max={toInputDate(task.target_end_date) || undefined}
+                  min={startDate || undefined}
                   onChange={(e) => setTargetDate(e.target.value)}
                   required
                   className="h-11 w-full min-w-0 rounded-xl border border-slate-300 bg-white px-3 text-slate-900 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-100"
