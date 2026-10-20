@@ -95,6 +95,10 @@ export interface ActivityItem {
     id: string;
     name: string;
   };
+  task?: {
+    id: string;
+    name: string;
+  };
   task_name?: string;
   project_name?: string;
   project_id?: string;
