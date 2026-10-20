@@ -113,7 +113,9 @@ export default function ActivityFormModal({
     if (!isOpen) return;
     document.body.style.overflow = "hidden";
     setError("");
-    const fallbackDate = defaultDate || getTodayStr();
+    const taskStart = toInputDate(task.start_date) || getTodayStr();
+    const taskEnd =
+      toInputDate(task.target_end_date) || taskStart || getTodayStr();
 
     const getDefaultValidator = () => {
       if (typeof window !== "undefined") {
@@ -148,9 +150,11 @@ export default function ActivityFormModal({
         )
       );
       setStatus(initialActivity.complete_status || "IN_PROGRESS");
-      setStartDate(toInputDate(initialActivity.start_date) || fallbackDate);
+      setStartDate(toInputDate(initialActivity.start_date) || taskStart);
       setTargetDate(
-        toInputDate(initialActivity.target_end_date) || fallbackDate
+        toInputDate(initialActivity.target_end_date) ||
+          toInputDate(initialActivity.start_date) ||
+          taskEnd
       );
       setActualDate(toInputDate(initialActivity.actual_end_date) || "");
       setNotes(initialActivity.notes || "");
@@ -162,8 +166,8 @@ export default function ActivityFormModal({
       setValidatorId(getDefaultValidator());
       setTypeId("2");
       setStatus("IN_PROGRESS");
-      setStartDate(fallbackDate);
-      setTargetDate(fallbackDate);
+      setStartDate(taskStart);
+      setTargetDate(taskEnd >= taskStart ? taskEnd : taskStart);
       setActualDate("");
       setNotes("");
       setShowMore(false);
@@ -172,7 +176,14 @@ export default function ActivityFormModal({
     return () => {
       document.body.style.overflow = "";
     };
-  }, [isOpen, initialActivity, employees, task.assignor_id, defaultDate]);
+  }, [
+    isOpen,
+    initialActivity,
+    employees,
+    task.assignor_id,
+    task.start_date,
+    task.target_end_date,
+  ]);
 
   // Compute daily breakdown when creating a multi-day activity
   const dateRangeBreakdown = useMemo(() => {
@@ -452,6 +463,8 @@ export default function ActivityFormModal({
                 <input
                   type="date"
                   value={startDate}
+                  min={toInputDate(task.start_date) || undefined}
+                  max={toInputDate(task.target_end_date) || undefined}
                   onChange={(e) => {
                     const nextStart = e.target.value;
                     setStartDate(nextStart);
@@ -471,7 +484,8 @@ export default function ActivityFormModal({
                 <input
                   type="date"
                   value={targetDate}
-                  min={startDate}
+                  min={startDate || toInputDate(task.start_date) || undefined}
+                  max={toInputDate(task.target_end_date) || undefined}
                   onChange={(e) => setTargetDate(e.target.value)}
                   required
                   className="h-11 w-full min-w-0 rounded-xl border border-slate-300 bg-white px-3 text-slate-900 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-100"

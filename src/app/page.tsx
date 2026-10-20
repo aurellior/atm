@@ -472,7 +472,6 @@ export default function HomePage() {
                       task={task}
                       employees={employees}
                       defaultExpanded={idx === 0 && taskPage === 1}
-                      defaultDate={selectedCalendarDate}
                       onEditTask={(t) => {
                         setEditingTask(t);
                         setIsTaskModalOpen(true);
@@ -591,6 +590,7 @@ export default function HomePage() {
         projectName={activeProject?.name}
         employees={employees}
         initialTask={editingTask}
+        defaultDate={selectedCalendarDate}
         onSuccess={handleDataMutated}
       />
     </div>
