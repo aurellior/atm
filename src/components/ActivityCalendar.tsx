@@ -17,6 +17,8 @@ import {
 interface ActivityCalendarProps {
   activities: ActivityItem[];
   loading?: boolean;
+  selectedDateKey?: string | null;
+  onSelectDateKey?: (dateKey: string | null) => void;
 }
 
 const MONTH_NAMES = [
@@ -50,13 +52,30 @@ function extractDateStr(iso?: string | null): string | null {
 export default function ActivityCalendar({
   activities,
   loading = false,
+  selectedDateKey: controlledDateKey,
+  onSelectDateKey,
 }: ActivityCalendarProps) {
   const now = new Date();
   const [viewYear, setViewYear] = useState(now.getFullYear());
   const [viewMonth, setViewMonth] = useState(now.getMonth());
-  const [selectedDateKey, setSelectedDateKey] = useState<string | null>(null);
+  const [internalDateKey, setInternalDateKey] = useState<string | null>(null);
   const [holidays, setHolidays] = useState<HolidayItem[]>([]);
   const [holidaysLoading, setHolidaysLoading] = useState(false);
+
+  const selectedDateKey =
+    controlledDateKey !== undefined ? controlledDateKey : internalDateKey;
+
+  const setSelectedDateKey = (
+    next: string | null | ((prev: string | null) => string | null)
+  ) => {
+    const resolved =
+      typeof next === "function" ? next(selectedDateKey) : next;
+    if (onSelectDateKey) {
+      onSelectDateKey(resolved);
+    } else {
+      setInternalDateKey(resolved);
+    }
+  };
 
   // Fetch Indonesian Public Holidays & Collective Leave from Tanggal Merah API
   useEffect(() => {

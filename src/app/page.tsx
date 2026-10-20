@@ -32,6 +32,9 @@ export default function HomePage() {
   const [calendarActivities, setCalendarActivities] = useState<ActivityItem[]>(
     []
   );
+  const [selectedCalendarDate, setSelectedCalendarDate] = useState<
+    string | null
+  >(null);
   const [loadingCalendar, setLoadingCalendar] = useState(true);
   const [projects, setProjects] = useState<JoinedProject[]>([]);
   const [selectedProjectId, setSelectedProjectId] = useState<string>("");
@@ -183,6 +186,8 @@ export default function HomePage() {
         <ActivityCalendar
           activities={calendarActivities}
           loading={loadingCalendar}
+          selectedDateKey={selectedCalendarDate}
+          onSelectDateKey={setSelectedCalendarDate}
         />
 
         {/* Project Selector Bar */}
@@ -433,6 +438,7 @@ export default function HomePage() {
                       task={task}
                       employees={employees}
                       defaultExpanded={idx === 0 && taskPage === 1}
+                      defaultDate={selectedCalendarDate}
                       onEditTask={(t) => {
                         setEditingTask(t);
                         setIsTaskModalOpen(true);
@@ -551,6 +557,7 @@ export default function HomePage() {
         projectName={activeProject?.name}
         employees={employees}
         initialTask={editingTask}
+        defaultDate={selectedCalendarDate}
         onSuccess={handleDataMutated}
       />
     </div>

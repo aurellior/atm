@@ -27,6 +27,7 @@ interface TaskCardProps {
   task: TaskItem;
   employees: EmployeeOption[];
   defaultExpanded?: boolean;
+  defaultDate?: string | null;
   onEditTask: (task: TaskItem) => void;
   onTaskMutated: () => void;
 }
@@ -70,6 +71,7 @@ export default function TaskCard({
   task,
   employees,
   defaultExpanded = false,
+  defaultDate,
   onEditTask,
   onTaskMutated,
 }: TaskCardProps) {
@@ -466,6 +468,7 @@ export default function TaskCard({
         task={task}
         employees={employees}
         initialActivity={editingActivity}
+        defaultDate={defaultDate}
         onSuccess={async () => {
           await fetchActivities();
           onTaskMutated();

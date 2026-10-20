@@ -23,6 +23,7 @@ interface ActivityFormModalProps {
   task: TaskItem;
   employees: EmployeeOption[];
   initialActivity?: ActivityItem | null;
+  defaultDate?: string | null;
   onSuccess: () => void;
 }
 
@@ -45,6 +46,7 @@ export default function ActivityFormModal({
   task,
   employees,
   initialActivity,
+  defaultDate,
   onSuccess,
 }: ActivityFormModalProps) {
   const isEdit = Boolean(initialActivity);
@@ -66,6 +68,7 @@ export default function ActivityFormModal({
     if (!isOpen) return;
     document.body.style.overflow = "hidden";
     setError("");
+    const fallbackDate = defaultDate || getTodayStr();
 
     const getDefaultValidator = () => {
       if (typeof window !== "undefined") {
@@ -100,9 +103,9 @@ export default function ActivityFormModal({
         )
       );
       setStatus(initialActivity.complete_status || "IN_PROGRESS");
-      setStartDate(toInputDate(initialActivity.start_date) || getTodayStr());
+      setStartDate(toInputDate(initialActivity.start_date) || fallbackDate);
       setTargetDate(
-        toInputDate(initialActivity.target_end_date) || getTodayStr()
+        toInputDate(initialActivity.target_end_date) || fallbackDate
       );
       setActualDate(toInputDate(initialActivity.actual_end_date) || "");
       setNotes(initialActivity.notes || "");
@@ -114,8 +117,8 @@ export default function ActivityFormModal({
       setValidatorId(getDefaultValidator());
       setTypeId("2");
       setStatus("IN_PROGRESS");
-      setStartDate(getTodayStr());
-      setTargetDate(getTodayStr());
+      setStartDate(fallbackDate);
+      setTargetDate(fallbackDate);
       setActualDate("");
       setNotes("");
       setShowMore(false);
@@ -124,7 +127,7 @@ export default function ActivityFormModal({
     return () => {
       document.body.style.overflow = "";
     };
-  }, [isOpen, initialActivity, employees, task.assignor_id]);
+  }, [isOpen, initialActivity, employees, task.assignor_id, defaultDate]);
 
   if (!isOpen) return null;
 
@@ -147,8 +150,9 @@ export default function ActivityFormModal({
         localStorage.setItem("atm_last_validator", validatorId);
       }
 
+      const fallbackDate = defaultDate || getTodayStr();
       const finalActualDate =
-        actualDate || (status === "DONE" ? getTodayStr() : null);
+        actualDate || (status === "DONE" ? fallbackDate : null);
 
       if (isEdit && initialActivity) {
         await api.editActivity({

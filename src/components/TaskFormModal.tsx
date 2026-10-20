@@ -12,6 +12,7 @@ interface TaskFormModalProps {
   projectName?: string;
   employees: EmployeeOption[];
   initialTask?: TaskItem | null;
+  defaultDate?: string | null;
   onSuccess: () => void;
 }
 
@@ -35,6 +36,7 @@ export default function TaskFormModal({
   projectName,
   employees,
   initialTask,
+  defaultDate,
   onSuccess,
 }: TaskFormModalProps) {
   const isEdit = Boolean(initialTask);
@@ -51,12 +53,13 @@ export default function TaskFormModal({
     if (!isOpen) return;
     document.body.style.overflow = "hidden";
     setError("");
+    const fallbackDate = defaultDate || getTodayStr();
 
     if (initialTask) {
       setName(initialTask.name || "");
       setAssignorId(String(initialTask.assignor_id || ""));
-      setStartDate(toInputDate(initialTask.start_date) || getTodayStr());
-      setTargetDate(toInputDate(initialTask.target_end_date) || getTodayStr());
+      setStartDate(toInputDate(initialTask.start_date) || fallbackDate);
+      setTargetDate(toInputDate(initialTask.target_end_date) || fallbackDate);
       setActualDate(toInputDate(initialTask.actual_end_date) || "");
     } else {
       setName("");
@@ -72,15 +75,15 @@ export default function TaskFormModal({
       } else if (employees.length > 0) {
         setAssignorId(String(employees[0].id));
       }
-      setStartDate(getTodayStr());
-      setTargetDate(getTodayStr());
+      setStartDate(fallbackDate);
+      setTargetDate(fallbackDate);
       setActualDate("");
     }
 
     return () => {
       document.body.style.overflow = "";
     };
-  }, [isOpen, initialTask, employees]);
+  }, [isOpen, initialTask, employees, defaultDate]);
 
   if (!isOpen) return null;
 
