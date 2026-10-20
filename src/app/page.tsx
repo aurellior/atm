@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useCallback, useEffect, useState } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import { useAuth } from "@/context/AuthContext";
 import { api } from "@/lib/api";
 import {
@@ -48,6 +48,33 @@ export default function HomePage() {
   const [isJoinModalOpen, setIsJoinModalOpen] = useState(false);
   const [isTaskModalOpen, setIsTaskModalOpen] = useState(false);
   const [editingTask, setEditingTask] = useState<TaskItem | null>(null);
+
+  // Horizontal scroll & drag state for Project Selector
+  const projectScrollRef = useRef<HTMLDivElement | null>(null);
+  const isDraggingRef = useRef(false);
+  const dragMovedRef = useRef(false);
+  const dragStartXRef = useRef(0);
+  const dragScrollLeftRef = useRef(0);
+
+  useEffect(() => {
+    const el = projectScrollRef.current;
+    if (!el) return;
+
+    const handleWheel = (e: WheelEvent) => {
+      if (el.scrollWidth <= el.clientWidth) return;
+      if (Math.abs(e.deltaY) > Math.abs(e.deltaX)) {
+        e.preventDefault();
+        el.scrollLeft += e.deltaY;
+      }
+    };
+
+    el.addEventListener("wheel", handleWheel, { passive: false });
+    return () => el.removeEventListener("wheel", handleWheel);
+  }, [projects.length, loadingProjects]);
+
+  const scrollProjectsBy = (offset: number) => {
+    projectScrollRef.current?.scrollBy({ left: offset, behavior: "smooth" });
+  };
 
   const loadCalendarData = useCallback(async () => {
     setLoadingCalendar(true);
@@ -164,14 +191,36 @@ export default function HomePage() {
             <h2 className="text-xs font-bold uppercase tracking-wider text-slate-500">
               Pilih Project ({projects.length})
             </h2>
-            <button
-              type="button"
-              onClick={() => setIsJoinModalOpen(true)}
-              className="inline-flex items-center gap-1 rounded-xl border border-brand-200 bg-brand-50 px-3 py-1.5 text-xs font-bold text-brand-700 transition active:scale-95 hover:bg-brand-100"
-            >
-              <FolderPlus className="h-3.5 w-3.5" />
-              Join Project
-            </button>
+            <div className="flex items-center gap-1.5">
+              {projects.length > 3 && (
+                <div className="hidden items-center gap-1 sm:flex">
+                  <button
+                    type="button"
+                    onClick={() => scrollProjectsBy(-260)}
+                    className="flex h-8 w-8 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-600 transition active:scale-95 hover:bg-slate-50"
+                    title="Geser Kiri"
+                  >
+                    <ChevronLeft className="h-4 w-4" />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => scrollProjectsBy(260)}
+                    className="flex h-8 w-8 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-600 transition active:scale-95 hover:bg-slate-50"
+                    title="Geser Kanan"
+                  >
+                    <ChevronRight className="h-4 w-4" />
+                  </button>
+                </div>
+              )}
+              <button
+                type="button"
+                onClick={() => setIsJoinModalOpen(true)}
+                className="inline-flex items-center gap-1 rounded-xl border border-brand-200 bg-brand-50 px-3 py-1.5 text-xs font-bold text-brand-700 transition active:scale-95 hover:bg-brand-100"
+              >
+                <FolderPlus className="h-3.5 w-3.5" />
+                Join Project
+              </button>
+            </div>
           </div>
 
           {loadingProjects ? (
@@ -198,7 +247,34 @@ export default function HomePage() {
               </button>
             </div>
           ) : (
-            <div className="no-scrollbar -mx-3.5 flex gap-2.5 overflow-x-auto px-3.5 pb-1 sm:mx-0 sm:px-0">
+            <div
+              ref={projectScrollRef}
+              onMouseDown={(e) => {
+                if (!projectScrollRef.current) return;
+                isDraggingRef.current = true;
+                dragMovedRef.current = false;
+                dragStartXRef.current =
+                  e.pageX - projectScrollRef.current.offsetLeft;
+                dragScrollLeftRef.current = projectScrollRef.current.scrollLeft;
+              }}
+              onMouseMove={(e) => {
+                if (!isDraggingRef.current || !projectScrollRef.current) return;
+                const x = e.pageX - projectScrollRef.current.offsetLeft;
+                const walk = x - dragStartXRef.current;
+                if (Math.abs(walk) > 6) {
+                  dragMovedRef.current = true;
+                  projectScrollRef.current.scrollLeft =
+                    dragScrollLeftRef.current - walk;
+                }
+              }}
+              onMouseUp={() => {
+                isDraggingRef.current = false;
+              }}
+              onMouseLeave={() => {
+                isDraggingRef.current = false;
+              }}
+              className="project-scrollbar -mx-3.5 flex cursor-grab select-none gap-2.5 overflow-x-auto px-3.5 pb-2 active:cursor-grabbing sm:mx-0 sm:px-0"
+            >
               {projects.map((proj) => {
                 const isSelected = String(proj.id) === String(selectedProjectId);
                 return (
@@ -206,6 +282,10 @@ export default function HomePage() {
                     key={proj.id}
                     type="button"
                     onClick={() => {
+                      if (dragMovedRef.current) {
+                        dragMovedRef.current = false;
+                        return;
+                      }
                       const idStr = String(proj.id);
                       setSelectedProjectId((prev) =>
                         prev === idStr ? "" : idStr

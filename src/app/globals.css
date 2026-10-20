@@ -56,3 +56,21 @@
 .pb-safe {
   padding-bottom: max(1.25rem, env(safe-area-inset-bottom));
 }
+
+/* Sleek horizontal scrollbar for desktop project selector */
+.project-scrollbar::-webkit-scrollbar {
+  height: 6px;
+}
+
+.project-scrollbar::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.project-scrollbar::-webkit-scrollbar-thumb {
+  background-color: #cbd5e1;
+  border-radius: 9999px;
+}
+
+.project-scrollbar::-webkit-scrollbar-thumb:hover {
+  background-color: #94a3b8;
+}
