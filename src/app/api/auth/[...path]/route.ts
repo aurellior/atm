@@ -7,7 +7,6 @@ import {
 import {
   comparePassword,
   createToken,
-  hashPassword,
   verifyRequestToken,
 } from "@/server/auth";
 import { proxyToRemoteBackend } from "@/server/proxy";
@@ -105,35 +104,6 @@ async function handleAuthRequest(
         );
       }
       return NextResponse.json({ email: employee.email }, { status: 200 });
-    }
-
-    // POST /api/auth/forgot-password
-    if (req.method === "POST" && subPath === "/forgot-password") {
-      const { email, new_password } = await req.json();
-      if (!new_password || new_password.length < 6) {
-        return NextResponse.json(
-          { error: "Password must be at least 6 characters long." },
-          { status: 400 }
-        );
-      }
-      const employee = await prisma.employees.findUnique({ where: { email } });
-      if (!employee) {
-        return NextResponse.json(
-          { error: "Employee not found" },
-          { status: 404 }
-        );
-      }
-      const updated = await prisma.employees.update({
-        where: { email },
-        data: { password: hashPassword(new_password) },
-      });
-      return NextResponse.json(
-        serializeData({
-          message: `Employee ${updated.name}'s password has been successfully changed!`,
-          data: updated,
-        }),
-        { status: 200 }
-      );
     }
 
     return NextResponse.json({ message: "Not Found" }, { status: 404 });
