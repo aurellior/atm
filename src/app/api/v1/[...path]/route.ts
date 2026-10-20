@@ -214,7 +214,12 @@ async function handleApiV1Request(
         include: {
           project: {
             include: {
-              tasks: { where: { deleted_at: null } },
+              tasks: {
+                where: {
+                  employee_id: employeeId,
+                  deleted_at: null,
+                },
+              },
               employeesJoined: {
                 include: {
                   employee: { select: { id: true, name: true } },
@@ -225,22 +230,32 @@ async function handleApiV1Request(
         },
       });
 
-      const projects = employeeProjects.map((projectJoin) => ({
-        id: projectJoin.project.id,
-        name: projectJoin.project.name,
-        priority: projectJoin.priority,
-        type: projectJoin.project.type,
-        start_date: projectJoin.project.start_date,
-        target_end_date: projectJoin.project.target_end_date,
-        progress: projectJoin.project.progress,
-        total_tasks: projectJoin.project.tasks.length,
-        total_tasks_done: projectJoin.project.tasks.filter(
+      const projects = employeeProjects.map((projectJoin) => {
+        const myTasks = projectJoin.project.tasks;
+        const totalMyTasks = myTasks.length;
+        const totalMyTasksDone = myTasks.filter(
           (t) => t.progress === 100
-        ).length,
-        employees_joined: projectJoin.project.employeesJoined.map(
-          (ej) => ej.employee
-        ),
-      }));
+        ).length;
+        const myProgress =
+          totalMyTasks > 0
+            ? Math.round((totalMyTasksDone / totalMyTasks) * 100)
+            : 0;
+
+        return {
+          id: projectJoin.project.id,
+          name: projectJoin.project.name,
+          priority: projectJoin.priority,
+          type: projectJoin.project.type,
+          start_date: projectJoin.project.start_date,
+          target_end_date: projectJoin.project.target_end_date,
+          progress: myProgress,
+          total_tasks: totalMyTasks,
+          total_tasks_done: totalMyTasksDone,
+          employees_joined: projectJoin.project.employeesJoined.map(
+            (ej) => ej.employee
+          ),
+        };
+      });
 
       return NextResponse.json(serializeData({ projects }));
     }
