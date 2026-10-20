@@ -15,8 +15,13 @@ export const metadata: Metadata = {
   title: "Activity Tracker",
   description: "Simple & Mobile-Friendly Activity Tracker Management",
   icons: {
-    icon: "/favicon.ico",
-    shortcut: "/favicon.ico",
+    icon: [
+      { url: "/logo-icon.svg?v=2", type: "image/svg+xml" },
+      { url: "/favicon-v1.png?v=2", type: "image/png", sizes: "32x32" },
+      { url: "/favicon.ico?v=2", sizes: "any" },
+    ],
+    shortcut: "/favicon-v1.png?v=2",
+    apple: "/favicon-v1.png?v=2",
   },
 };
 
