@@ -16,11 +16,15 @@ import TaskFormModal from "@/components/TaskFormModal";
 import TaskCard from "@/components/TaskCard";
 import {
   Briefcase,
+  ChevronLeft,
+  ChevronRight,
   ClipboardList,
   FolderPlus,
   Loader2,
   Plus,
 } from "lucide-react";
+
+const TASKS_PER_PAGE = 10;
 
 export default function HomePage() {
   const { user, isLoading: authLoading } = useAuth();
@@ -32,6 +36,9 @@ export default function HomePage() {
   const [projects, setProjects] = useState<JoinedProject[]>([]);
   const [selectedProjectId, setSelectedProjectId] = useState<string>("");
   const [tasks, setTasks] = useState<TaskItem[]>([]);
+  const [taskPage, setTaskPage] = useState<number>(1);
+  const [totalTasks, setTotalTasks] = useState<number>(0);
+  const [totalTaskPages, setTotalTaskPages] = useState<number>(1);
   const [employees, setEmployees] = useState<EmployeeOption[]>([]);
 
   const [loadingProjects, setLoadingProjects] = useState(true);
@@ -86,20 +93,25 @@ export default function HomePage() {
   const loadTasksForProject = useCallback(async () => {
     if (!selectedProjectId) {
       setTasks([]);
+      setTotalTasks(0);
+      setTotalTaskPages(1);
       return;
     }
     setLoadingTasks(true);
     try {
       const res = await api.getTasksByProject(selectedProjectId, {
-        limit: 50,
+        page: taskPage,
+        limit: TASKS_PER_PAGE,
       });
       setTasks(res.tasks);
+      setTotalTasks(res.total || res.tasks.length);
+      setTotalTaskPages(Math.max(1, res.totalPages || 1));
     } catch (err) {
       console.error("Gagal memuat daftar task:", err);
     } finally {
       setLoadingTasks(false);
     }
-  }, [selectedProjectId]);
+  }, [selectedProjectId, taskPage]);
 
   const handleDataMutated = useCallback(async () => {
     await loadTasksForProject();
@@ -197,7 +209,10 @@ export default function HomePage() {
                   <button
                     key={proj.id}
                     type="button"
-                    onClick={() => setSelectedProjectId(String(proj.id))}
+                    onClick={() => {
+                      setSelectedProjectId(String(proj.id));
+                      setTaskPage(1);
+                    }}
                     className={`flex min-w-[185px] shrink-0 flex-col justify-between rounded-2xl border p-3.5 text-left transition active:scale-[0.98] sm:min-w-[220px] ${
                       isSelected
                         ? "border-brand-600 bg-brand-600 text-white shadow-sm"
@@ -260,11 +275,19 @@ export default function HomePage() {
           <section className="mt-5 sm:mt-6">
             <div className="flex items-center justify-between gap-2">
               <div className="min-w-0">
-                <h2 className="truncate text-sm font-bold text-slate-900 sm:text-lg">
-                  Task: {activeProject.name}
-                </h2>
+                <div className="flex items-center gap-2">
+                  <h2 className="truncate text-sm font-bold text-slate-900 sm:text-lg">
+                    Task: {activeProject.name}
+                  </h2>
+                  {totalTasks > 0 && (
+                    <span className="shrink-0 rounded-full bg-slate-200/70 px-2 py-0.5 text-[11px] font-bold text-slate-600">
+                      {totalTasks}
+                    </span>
+                  )}
+                </div>
                 <p className="text-[11px] text-slate-500 sm:text-xs">
-                  Ketuk kartu Task untuk kelola Activity
+                  Ketuk kartu Task untuk kelola Activity (maks {TASKS_PER_PAGE}{" "}
+                  per halaman)
                 </p>
               </div>
 
@@ -311,19 +334,103 @@ export default function HomePage() {
                   </button>
                 </div>
               ) : (
-                tasks.map((task, idx) => (
-                  <TaskCard
-                    key={task.id}
-                    task={task}
-                    employees={employees}
-                    defaultExpanded={idx === 0}
-                    onEditTask={(t) => {
-                      setEditingTask(t);
-                      setIsTaskModalOpen(true);
-                    }}
-                    onTaskMutated={handleDataMutated}
-                  />
-                ))
+                <>
+                  {tasks.map((task, idx) => (
+                    <TaskCard
+                      key={task.id}
+                      task={task}
+                      employees={employees}
+                      defaultExpanded={idx === 0 && taskPage === 1}
+                      onEditTask={(t) => {
+                        setEditingTask(t);
+                        setIsTaskModalOpen(true);
+                      }}
+                      onTaskMutated={handleDataMutated}
+                    />
+                  ))}
+
+                  {/* Pagination Controls (Shown when totalTasks > 0) */}
+                  <div className="mt-4 flex flex-col items-center justify-between gap-3 rounded-2xl border border-slate-200/90 bg-white px-4 py-3 sm:flex-row">
+                    <p className="text-xs font-medium text-slate-500">
+                      Menampilkan{" "}
+                      <span className="font-bold text-slate-800">
+                        {(taskPage - 1) * TASKS_PER_PAGE + 1}–
+                        {Math.min(taskPage * TASKS_PER_PAGE, totalTasks)}
+                      </span>{" "}
+                      dari{" "}
+                      <span className="font-bold text-slate-800">
+                        {totalTasks}
+                      </span>{" "}
+                      task
+                    </p>
+
+                    <div className="flex items-center gap-1.5">
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setTaskPage((prev) => Math.max(1, prev - 1))
+                        }
+                        disabled={taskPage <= 1 || loadingTasks}
+                        className="inline-flex h-9 items-center gap-1 rounded-xl border border-slate-200 bg-white px-3 text-xs font-bold text-slate-700 transition active:scale-95 hover:bg-slate-50 disabled:opacity-40"
+                      >
+                        <ChevronLeft className="h-4 w-4" />
+                        <span>Prev</span>
+                      </button>
+
+                      <div className="flex items-center gap-1 px-1">
+                        {Array.from(
+                          { length: totalTaskPages },
+                          (_, i) => i + 1
+                        )
+                          .filter(
+                            (p) =>
+                              p === 1 ||
+                              p === totalTaskPages ||
+                              Math.abs(p - taskPage) <= 1
+                          )
+                          .map((p, index, arr) => {
+                            const prevPage = arr[index - 1];
+                            const showEllipsis =
+                              prevPage !== undefined && p - prevPage > 1;
+                            return (
+                              <React.Fragment key={p}>
+                                {showEllipsis && (
+                                  <span className="px-1 text-xs text-slate-400">
+                                    ...
+                                  </span>
+                                )}
+                                <button
+                                  type="button"
+                                  onClick={() => setTaskPage(p)}
+                                  className={`flex h-9 w-9 items-center justify-center rounded-xl text-xs font-bold transition active:scale-95 ${
+                                    taskPage === p
+                                      ? "bg-brand-600 text-white shadow-sm"
+                                      : "border border-slate-200 bg-white text-slate-700 hover:bg-slate-50"
+                                  }`}
+                                >
+                                  {p}
+                                </button>
+                              </React.Fragment>
+                            );
+                          })}
+                      </div>
+
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setTaskPage((prev) =>
+                            Math.min(totalTaskPages, prev + 1)
+                          )
+                        }
+                        disabled={taskPage >= totalTaskPages || loadingTasks}
+                        className="inline-flex h-9 items-center gap-1 rounded-xl border border-slate-200 bg-white px-3 text-xs font-bold text-slate-700 transition active:scale-95 hover:bg-slate-50 disabled:opacity-40"
+                      >
+                        <span>Next</span>
+                        <ChevronRight className="h-4 w-4" />
+                      </button>
+                    </div>
+                  </div>
+                </>
               )}
             </div>
           </section>
