@@ -4,18 +4,18 @@ import React, { useCallback, useEffect, useState } from "react";
 import { useAuth } from "@/context/AuthContext";
 import { api } from "@/lib/api";
 import {
+  ActivityItem,
   EmployeeOption,
-  EmployeeSummary,
   JoinedProject,
   TaskItem,
 } from "@/types";
 import Navbar from "@/components/Navbar";
+import ActivityCalendar from "@/components/ActivityCalendar";
 import JoinProjectModal from "@/components/JoinProjectModal";
 import TaskFormModal from "@/components/TaskFormModal";
 import TaskCard from "@/components/TaskCard";
 import {
   Briefcase,
-  CheckCircle2,
   ClipboardList,
   FolderPlus,
   Loader2,
@@ -26,7 +26,10 @@ import {
 export default function HomePage() {
   const { user, isLoading: authLoading } = useAuth();
 
-  const [summary, setSummary] = useState<EmployeeSummary | null>(null);
+  const [calendarActivities, setCalendarActivities] = useState<ActivityItem[]>(
+    []
+  );
+  const [loadingCalendar, setLoadingCalendar] = useState(true);
   const [projects, setProjects] = useState<JoinedProject[]>([]);
   const [selectedProjectId, setSelectedProjectId] = useState<string>("");
   const [tasks, setTasks] = useState<TaskItem[]>([]);
@@ -44,18 +47,28 @@ export default function HomePage() {
   const [isTaskModalOpen, setIsTaskModalOpen] = useState(false);
   const [editingTask, setEditingTask] = useState<TaskItem | null>(null);
 
+  const loadCalendarData = useCallback(async () => {
+    setLoadingCalendar(true);
+    try {
+      const allActs = await api.getCalendarActivities();
+      setCalendarActivities(allActs);
+    } catch (err) {
+      console.error("Gagal memuat kalender activity:", err);
+    } finally {
+      setLoadingCalendar(false);
+    }
+  }, []);
+
   const loadInitialData = useCallback(async () => {
     if (!user) return;
     setLoadingProjects(true);
     try {
-      const [joinedList, summaryData, empList] = await Promise.all([
+      const [joinedList, empList] = await Promise.all([
         api.getJoinedProjects(),
-        api.getEmployeeSummary().catch(() => null),
         api.getEmployeesSelect().catch(() => []),
       ]);
 
       setProjects(joinedList);
-      setSummary(summaryData);
       setEmployees(empList);
 
       if (joinedList.length > 0) {
@@ -95,26 +108,26 @@ export default function HomePage() {
     }
   }, [selectedProjectId, searchQuery, statusFilter]);
 
-  // Refresh both project progress & tasks when a task/activity changes
+  // Refresh project progress, tasks, and contribution calendar when task/activity changes
   const handleDataMutated = useCallback(async () => {
     await loadTasksForProject();
     try {
-      const [joinedList, summaryData] = await Promise.all([
+      const [joinedList] = await Promise.all([
         api.getJoinedProjects(),
-        api.getEmployeeSummary().catch(() => null),
+        loadCalendarData(),
       ]);
       setProjects(joinedList);
-      setSummary(summaryData);
     } catch {
       // ignore background refresh error
     }
-  }, [loadTasksForProject]);
+  }, [loadTasksForProject, loadCalendarData]);
 
   useEffect(() => {
     if (user) {
       loadInitialData();
+      loadCalendarData();
     }
-  }, [user, loadInitialData]);
+  }, [user, loadInitialData, loadCalendarData]);
 
   useEffect(() => {
     if (selectedProjectId) {
@@ -139,44 +152,11 @@ export default function HomePage() {
       <Navbar />
 
       <main className="mx-auto max-w-5xl px-4 pt-5 sm:px-6">
-        {/* Compact Summary Cards (Responsive 3-Grid) */}
-        <section className="grid grid-cols-3 gap-2.5 sm:gap-4">
-          <div className="rounded-2xl border border-slate-200 bg-white p-3.5 shadow-sm sm:p-4">
-            <div className="flex items-center gap-2 text-brand-600">
-              <Briefcase className="h-4 w-4 shrink-0" />
-              <span className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">
-                Project
-              </span>
-            </div>
-            <p className="mt-1 text-xl font-bold text-slate-900 sm:text-2xl">
-              {summary?.total_project ?? projects.length}
-            </p>
-          </div>
-
-          <div className="rounded-2xl border border-slate-200 bg-white p-3.5 shadow-sm sm:p-4">
-            <div className="flex items-center gap-2 text-amber-600">
-              <ClipboardList className="h-4 w-4 shrink-0" />
-              <span className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">
-                Total Task
-              </span>
-            </div>
-            <p className="mt-1 text-xl font-bold text-slate-900 sm:text-2xl">
-              {summary?.total_task ?? 0}
-            </p>
-          </div>
-
-          <div className="rounded-2xl border border-slate-200 bg-white p-3.5 shadow-sm sm:p-4">
-            <div className="flex items-center gap-2 text-emerald-600">
-              <CheckCircle2 className="h-4 w-4 shrink-0" />
-              <span className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">
-                Task Selesai
-              </span>
-            </div>
-            <p className="mt-1 text-xl font-bold text-slate-900 sm:text-2xl">
-              {summary?.total_task_finished ?? 0}
-            </p>
-          </div>
-        </section>
+        {/* GitHub-Contribution Style Monthly Activity Calendar */}
+        <ActivityCalendar
+          activities={calendarActivities}
+          loading={loadingCalendar}
+        />
 
         {/* Project Selector Bar */}
         <section className="mt-6">
@@ -414,7 +394,10 @@ export default function HomePage() {
         isOpen={isJoinModalOpen}
         onClose={() => setIsJoinModalOpen(false)}
         joinedProjects={projects}
-        onSuccess={loadInitialData}
+        onSuccess={() => {
+          loadInitialData();
+          loadCalendarData();
+        }}
       />
 
       {/* Create / Edit Task Modal */}

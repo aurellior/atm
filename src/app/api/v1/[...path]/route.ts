@@ -5,9 +5,74 @@ import {
   serializeData,
 } from "@/server/prisma";
 import { verifyRequestToken } from "@/server/auth";
-import { proxyToRemoteBackend } from "@/server/proxy";
+import { getRemoteApiUrl, proxyToRemoteBackend } from "@/server/proxy";
 
 export const dynamic = "force-dynamic";
+
+async function handleRemoteCalendarAggregation(req: NextRequest) {
+  const auth = req.headers.get("authorization") || "";
+  const baseUrl = getRemoteApiUrl();
+  const headers: Record<string, string> = {
+    "Content-Type": "application/json",
+    ...(auth ? { Authorization: auth } : {}),
+  };
+
+  try {
+    const projRes = await fetch(`${baseUrl}/api/v1/projects/join/list`, {
+      headers,
+      cache: "no-store",
+    });
+    const projData = await projRes.json().catch(() => ({}));
+    const projects = Array.isArray(projData?.projects) ? projData.projects : [];
+
+    const tasksByProject = await Promise.all(
+      projects.map(async (proj: any) => {
+        const tRes = await fetch(
+          `${baseUrl}/api/v1/tasks/${proj.id}/list-personal?page=1&limit=100`,
+          { headers, cache: "no-store" }
+        );
+        const tData = await tRes.json().catch(() => ({}));
+        const tasks = Array.isArray(tData?.data?.tasks) ? tData.data.tasks : [];
+        return tasks.map((t: any) => ({
+          ...t,
+          projectName: proj.name,
+          projectId: proj.id,
+        }));
+      })
+    );
+
+    const allTasks = tasksByProject.flat();
+
+    const activitiesByTask = await Promise.all(
+      allTasks.map(async (task: any) => {
+        const aRes = await fetch(
+          `${baseUrl}/api/v1/activities/list/personal/${task.id}?page=1&limit=100`,
+          { headers, cache: "no-store" }
+        );
+        const aData = await aRes.json().catch(() => ({}));
+        const activities = Array.isArray(aData?.data?.activities)
+          ? aData.data.activities
+          : [];
+        return activities.map((act: any) => ({
+          ...act,
+          task_name: task.name,
+          project_name: task.projectName,
+          project_id: task.projectId,
+        }));
+      })
+    );
+
+    return NextResponse.json({
+      activities: activitiesByTask.flat(),
+    });
+  } catch (error: any) {
+    console.error("Remote calendar aggregation error:", error);
+    return NextResponse.json(
+      { error: error?.message || "Failed to load calendar activities" },
+      { status: 500 }
+    );
+  }
+}
 
 async function handleApiV1Request(
   req: NextRequest,
@@ -18,6 +83,9 @@ async function handleApiV1Request(
 
   // If DATABASE_URL is not configured yet, proxy server-to-server to remote backend (zero CORS!)
   if (!isLocalDatabaseConfigured()) {
+    if (req.method === "GET" && subPath === "/activities/calendar") {
+      return handleRemoteCalendarAggregation(req);
+    }
     return proxyToRemoteBackend(req, `/api/v1${subPath}`);
   }
 
@@ -362,6 +430,39 @@ async function handleApiV1Request(
     // ==========================================
     // ACTIVITIES ROUTES (/api/v1/activities/*)
     // ==========================================
+    // GET /api/v1/activities/calendar
+    if (req.method === "GET" && subPath === "/activities/calendar") {
+      const activities = await prisma.activities.findMany({
+        where: {
+          employee_id: employeeId,
+          deleted_at: null,
+          task: { deleted_at: null },
+        },
+        include: {
+          task: {
+            select: {
+              id: true,
+              name: true,
+              project_id: true,
+              project: { select: { id: true, name: true } },
+            },
+          },
+          validator: { select: { id: true, name: true } },
+          activityType: { select: { id: true, name: true } },
+        },
+        orderBy: { start_date: "desc" },
+      });
+
+      const formatted = activities.map((act) => ({
+        ...act,
+        task_name: act.task?.name,
+        project_name: act.task?.project?.name,
+        project_id: act.task?.project_id,
+      }));
+
+      return NextResponse.json(serializeData({ activities: formatted }));
+    }
+
     // GET /api/v1/activities/list/personal/:task_id
     if (
       req.method === "GET" &&

@@ -95,6 +95,9 @@ export interface ActivityItem {
     id: string;
     name: string;
   };
+  task_name?: string;
+  project_name?: string;
+  project_id?: string;
 }
 
 export const ACTIVITY_TYPES = [

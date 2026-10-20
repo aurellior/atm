@@ -183,6 +183,13 @@ export const api = {
   },
 
   // Activities
+  async getCalendarActivities(): Promise<ActivityItem[]> {
+    const res = await apiFetch<{ activities: ActivityItem[] }>(
+      "/api/v1/activities/calendar"
+    );
+    return Array.isArray(res?.activities) ? res.activities : [];
+  },
+
   async getActivitiesByTask(
     taskId: string | number,
     params?: { search?: string; complete_status?: string; limit?: number }
