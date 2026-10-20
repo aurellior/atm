@@ -169,7 +169,7 @@ export default function ActivityFormModal({
       setTypeId("2");
       setStatus("IN_PROGRESS");
       setStartDate(taskStart);
-      setTargetDate(taskEnd >= taskStart ? taskEnd : taskStart);
+      setTargetDate(taskStart);
       setActualDate("");
       setNotes("");
       setShowMore(false);
