@@ -218,21 +218,24 @@ export const api = {
     actual_end_date?: string | null;
     complete_status: ActivityStatus;
     notes?: string;
+    dates?: string[];
   }) {
-    return apiFetch<{ message: string; data: ActivityItem }>(
-      "/api/v1/activities",
-      {
-        method: "POST",
-        body: JSON.stringify({
-          ...payload,
-          task_id: Number(payload.task_id),
-          validator_id: Number(payload.validator_id),
-          activity_type_id: Number(payload.activity_type_id),
-          actual_end_date: payload.actual_end_date || null,
-          notes: payload.notes || "",
-        }),
-      }
-    );
+    return apiFetch<{
+      message: string;
+      data: ActivityItem;
+      activities?: ActivityItem[];
+      count?: number;
+    }>("/api/v1/activities", {
+      method: "POST",
+      body: JSON.stringify({
+        ...payload,
+        task_id: Number(payload.task_id),
+        validator_id: Number(payload.validator_id),
+        activity_type_id: Number(payload.activity_type_id),
+        actual_end_date: payload.actual_end_date || null,
+        notes: payload.notes || "",
+      }),
+    });
   },
 
   async editActivity(payload: {

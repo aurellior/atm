@@ -1,15 +1,17 @@
 "use client";
 
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { api } from "@/lib/api";
 import {
   ACTIVITY_TYPES,
   ActivityItem,
   ActivityStatus,
   EmployeeOption,
+  HolidayItem,
   TaskItem,
 } from "@/types";
 import {
+  CalendarDays,
   CheckSquare,
   ChevronDown,
   Loader2,
@@ -27,6 +29,21 @@ interface ActivityFormModalProps {
   onSuccess: () => void;
 }
 
+const SHORT_MONTHS = [
+  "Jan",
+  "Feb",
+  "Mar",
+  "Apr",
+  "Mei",
+  "Jun",
+  "Jul",
+  "Agu",
+  "Sep",
+  "Okt",
+  "Nov",
+  "Des",
+];
+
 function getTodayStr() {
   const now = new Date();
   const y = now.getFullYear();
@@ -38,6 +55,11 @@ function getTodayStr() {
 function toInputDate(iso?: string | null) {
   if (!iso) return "";
   return iso.split("T")[0];
+}
+
+function formatDayMonth(dateKey: string) {
+  const [, m, d] = dateKey.split("-");
+  return `${Number(d)} ${SHORT_MONTHS[Number(m) - 1] || m}`;
 }
 
 export default function ActivityFormModal({
@@ -61,8 +83,31 @@ export default function ActivityFormModal({
   const [notes, setNotes] = useState("");
   const [showMore, setShowMore] = useState(false);
 
+  const [holidays, setHolidays] = useState<HolidayItem[]>([]);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
+
+  const activeYear = useMemo(() => {
+    const yr = Number(startDate?.split("-")[0]);
+    return yr > 2000 ? yr : new Date().getFullYear();
+  }, [startDate]);
+
+  useEffect(() => {
+    if (!isOpen || isEdit) return;
+    let active = true;
+    fetch(`/api/v1/holidays?year=${activeYear}`)
+      .then((res) => res.json())
+      .then((json) => {
+        if (!active) return;
+        setHolidays(Array.isArray(json?.data) ? json.data : []);
+      })
+      .catch(() => {
+        if (active) setHolidays([]);
+      });
+    return () => {
+      active = false;
+    };
+  }, [isOpen, isEdit, activeYear]);
 
   useEffect(() => {
     if (!isOpen) return;
@@ -129,6 +174,65 @@ export default function ActivityFormModal({
     };
   }, [isOpen, initialActivity, employees, task.assignor_id, defaultDate]);
 
+  // Compute daily breakdown when creating a multi-day activity
+  const dateRangeBreakdown = useMemo(() => {
+    if (isEdit || !startDate || !targetDate) {
+      return { isMultiDay: false, activeDates: [startDate].filter(Boolean), skippedDates: [] };
+    }
+    if (targetDate <= startDate) {
+      return { isMultiDay: false, activeDates: [startDate], skippedDates: [] };
+    }
+
+    const startObj = new Date(`${startDate}T00:00:00`);
+    const endObj = new Date(`${targetDate}T00:00:00`);
+    const diffDays = Math.round(
+      (endObj.getTime() - startObj.getTime()) / (1000 * 60 * 60 * 24)
+    );
+
+    if (diffDays <= 0) {
+      return { isMultiDay: false, activeDates: [startDate], skippedDates: [] };
+    }
+
+    const holidayMap = new Map<string, string>();
+    for (const h of holidays) {
+      if (h.date) holidayMap.set(h.date, h.name);
+    }
+
+    const activeDates: string[] = [];
+    const skippedDates: { date: string; reason: string }[] = [];
+    const maxDays = Math.min(diffDays, 60);
+
+    for (let i = 0; i <= maxDays; i++) {
+      const cur = new Date(startObj);
+      cur.setDate(startObj.getDate() + i);
+      const y = cur.getFullYear();
+      const m = String(cur.getMonth() + 1).padStart(2, "0");
+      const d = String(cur.getDate()).padStart(2, "0");
+      const key = `${y}-${m}-${d}`;
+      const dayOfWeek = cur.getDay();
+
+      if (dayOfWeek === 0 || dayOfWeek === 6) {
+        skippedDates.push({
+          date: key,
+          reason: dayOfWeek === 0 ? "Minggu" : "Sabtu",
+        });
+      } else if (holidayMap.has(key)) {
+        skippedDates.push({
+          date: key,
+          reason: holidayMap.get(key) || "Libur",
+        });
+      } else {
+        activeDates.push(key);
+      }
+    }
+
+    return {
+      isMultiDay: true,
+      activeDates,
+      skippedDates,
+    };
+  }, [isEdit, startDate, targetDate, holidays]);
+
   if (!isOpen) return null;
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -139,6 +243,14 @@ export default function ActivityFormModal({
     }
     if (!validatorId) {
       setError("Pilih validator terlebih dahulu");
+      return;
+    }
+    if (targetDate < startDate) {
+      setError("Target selesai tidak boleh lebih awal dari tanggal mulai");
+      return;
+    }
+    if (!isEdit && dateRangeBreakdown.isMultiDay && dateRangeBreakdown.activeDates.length === 0) {
+      setError("Semua tanggal dalam rentang tersebut adalah hari libur / akhir pekan");
       return;
     }
 
@@ -178,6 +290,7 @@ export default function ActivityFormModal({
           actual_end_date: finalActualDate,
           complete_status: status,
           notes: notes.trim(),
+          dates: dateRangeBreakdown.activeDates,
         });
       }
 
@@ -340,7 +453,13 @@ export default function ActivityFormModal({
                 <input
                   type="date"
                   value={startDate}
-                  onChange={(e) => setStartDate(e.target.value)}
+                  onChange={(e) => {
+                    const nextStart = e.target.value;
+                    setStartDate(nextStart);
+                    if (targetDate && nextStart > targetDate) {
+                      setTargetDate(nextStart);
+                    }
+                  }}
                   required
                   className="h-11 w-full min-w-0 rounded-xl border border-slate-300 bg-white px-3 text-slate-900 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-100"
                 />
@@ -353,12 +472,53 @@ export default function ActivityFormModal({
                 <input
                   type="date"
                   value={targetDate}
+                  min={startDate}
                   onChange={(e) => setTargetDate(e.target.value)}
                   required
                   className="h-11 w-full min-w-0 rounded-xl border border-slate-300 bg-white px-3 text-slate-900 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-100"
                 />
               </div>
             </div>
+
+            {/* Multi-Day Breakdown Preview */}
+            {!isEdit && dateRangeBreakdown.isMultiDay && (
+              <div className="rounded-xl border border-brand-200 bg-brand-50/70 p-3 text-xs">
+                <div className="flex items-center gap-1.5 font-bold text-brand-800">
+                  <CalendarDays className="h-4 w-4 shrink-0 text-brand-600" />
+                  <span>
+                    Otomatis membuat {dateRangeBreakdown.activeDates.length}{" "}
+                    Activity harian:
+                  </span>
+                </div>
+
+                {dateRangeBreakdown.activeDates.length > 0 ? (
+                  <div className="mt-1.5 flex flex-wrap gap-1">
+                    {dateRangeBreakdown.activeDates.map((d) => (
+                      <span
+                        key={d}
+                        className="rounded-md border border-brand-200 bg-white px-2 py-0.5 text-[11px] font-semibold text-brand-700"
+                      >
+                        {formatDayMonth(d)}
+                      </span>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="mt-1 text-[11px] text-rose-600 font-medium">
+                    Tidak ada hari kerja aktif pada rentang tanggal ini.
+                  </p>
+                )}
+
+                {dateRangeBreakdown.skippedDates.length > 0 && (
+                  <p className="mt-1.5 text-[11px] text-slate-500">
+                    Dilewati ({dateRangeBreakdown.skippedDates.length} hari
+                    libur/weekend):{" "}
+                    {dateRangeBreakdown.skippedDates
+                      .map((s) => `${formatDayMonth(s.date)} (${s.reason})`)
+                      .join(", ")}
+                  </p>
+                )}
+              </div>
+            )}
 
             {/* Optional Notes & Actual Date Toggle */}
             <div>
@@ -422,7 +582,12 @@ export default function ActivityFormModal({
               className="flex h-11 w-1/2 items-center justify-center gap-1.5 rounded-xl bg-brand-600 text-xs font-bold text-white shadow-sm transition active:scale-95 hover:bg-brand-700 disabled:opacity-50"
             >
               {submitting && <Loader2 className="h-4 w-4 animate-spin" />}
-              {isEdit ? "Update Activity" : "Simpan Activity"}
+              {isEdit
+                ? "Update Activity"
+                : dateRangeBreakdown.isMultiDay &&
+                  dateRangeBreakdown.activeDates.length > 1
+                ? `Simpan ${dateRangeBreakdown.activeDates.length} Activity`
+                : "Simpan Activity"}
             </button>
           </div>
         </form>

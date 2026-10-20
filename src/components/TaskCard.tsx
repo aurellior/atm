@@ -455,12 +455,13 @@ export default function TaskCard({
                           </div>
 
                           <div className="mt-1 flex flex-wrap items-center gap-x-2.5 gap-y-0.5 text-[11px] text-slate-500">
-                            {act.validator?.name && (
-                              <span>Validator: {act.validator.name}</span>
-                            )}
-                            <span>
-                              • Target: {formatShortDate(act.target_end_date)}
+                            <span className="inline-flex items-center gap-1 font-medium text-slate-600">
+                              <Calendar className="h-3 w-3 text-slate-400" />
+                              {formatShortDate(act.start_date || act.target_end_date)}
                             </span>
+                            {act.validator?.name && (
+                              <span>• Validator: {act.validator.name}</span>
+                            )}
                           </div>
 
                           {act.notes && (

@@ -369,7 +369,7 @@ async function handleApiV1Request(
               select: { id: true, name: true, email: true },
             },
           },
-          orderBy: { updated_at: "desc" },
+          orderBy: [{ start_date: "desc" }, { id: "desc" }],
           skip,
           take: limit,
         }),
@@ -549,7 +549,7 @@ async function handleApiV1Request(
             validator: { select: { id: true, name: true } },
             activityType: { select: { id: true, name: true } },
           },
-          orderBy: { updated_at: "desc" },
+          orderBy: [{ start_date: "desc" }, { id: "desc" }],
           skip,
           take: limit,
         }),
@@ -580,27 +580,118 @@ async function handleApiV1Request(
         actual_end_date,
         complete_status,
         notes,
+        dates,
       } = await req.json();
 
-      const newActivity = await prisma.activities.create({
-        data: {
-          employee_id: employeeId,
-          task_id: BigInt(task_id),
-          validator_id: BigInt(validator_id),
-          activity_type_id: BigInt(activity_type_id),
-          name,
-          start_date: new Date(start_date),
-          target_end_date: new Date(target_end_date),
-          actual_end_date: actual_end_date ? new Date(actual_end_date) : null,
-          complete_status,
-          notes,
-        },
-      });
+      // If multiple dates are provided (or start_date..target_end_date spans multiple days),
+      // create one activity record per active workday!
+      let targetDates: string[] = [];
+      if (Array.isArray(dates) && dates.length > 0) {
+        targetDates = dates.map((d: any) => String(d).split("T")[0]);
+      } else {
+        const startStr = String(start_date || "").split("T")[0];
+        const endStr = String(target_end_date || startStr).split("T")[0];
+
+        if (startStr && endStr && endStr > startStr) {
+          const startObj = new Date(`${startStr}T00:00:00`);
+          const endObj = new Date(`${endStr}T00:00:00`);
+          const diffDays = Math.round(
+            (endObj.getTime() - startObj.getTime()) / (1000 * 60 * 60 * 24)
+          );
+
+          // Fetch holidays for spanned years to skip national holidays & collective leave
+          const years = Array.from(
+            new Set([startObj.getFullYear(), endObj.getFullYear()])
+          );
+          const holidaySet = new Set<string>();
+          await Promise.all(
+            years.map(async (yr) => {
+              try {
+                const hRes = await fetch(
+                  `https://tanggalmerah.upset.dev/api/holidays?year=${yr}`,
+                  { next: { revalidate: 86400 } }
+                );
+                if (hRes.ok) {
+                  const hJson = await hRes.json();
+                  const hList = Array.isArray(hJson?.data) ? hJson.data : [];
+                  hList.forEach((h: any) => {
+                    if (h?.date) holidaySet.add(String(h.date));
+                  });
+                }
+              } catch {
+                // ignore upstream holiday fetch error
+              }
+            })
+          );
+
+          const maxDays = Math.min(diffDays, 60);
+          for (let i = 0; i <= maxDays; i++) {
+            const cur = new Date(startObj);
+            cur.setDate(startObj.getDate() + i);
+            const dayOfWeek = cur.getDay();
+            const isWeekend = dayOfWeek === 0 || dayOfWeek === 6;
+            const y = cur.getFullYear();
+            const m = String(cur.getMonth() + 1).padStart(2, "0");
+            const d = String(cur.getDate()).padStart(2, "0");
+            const dateKey = `${y}-${m}-${d}`;
+
+            if (!isWeekend && !holidaySet.has(dateKey)) {
+              targetDates.push(dateKey);
+            }
+          }
+        } else if (startStr) {
+          targetDates = [startStr];
+        }
+      }
+
+      if (targetDates.length === 0) {
+        return NextResponse.json(
+          {
+            message:
+              "Rentang tanggal yang dipilih semuanya jatuh pada hari libur / akhir pekan.",
+          },
+          { status: 400 }
+        );
+      }
+
+      const createdActivities = await prisma.$transaction(
+        targetDates.map((dateStr) => {
+          const dayDate = new Date(dateStr);
+          const dayActualEnd =
+            complete_status === "DONE"
+              ? actual_end_date
+                ? new Date(actual_end_date)
+                : dayDate
+              : actual_end_date
+              ? new Date(actual_end_date)
+              : null;
+
+          return prisma.activities.create({
+            data: {
+              employee_id: employeeId,
+              task_id: BigInt(task_id),
+              validator_id: BigInt(validator_id),
+              activity_type_id: BigInt(activity_type_id),
+              name,
+              start_date: dayDate,
+              target_end_date: dayDate,
+              actual_end_date: dayActualEnd,
+              complete_status,
+              notes,
+            },
+          });
+        })
+      );
 
       return NextResponse.json(
         serializeData({
-          message: `Activity "${newActivity.name}" has been created`,
-          data: newActivity,
+          message:
+            createdActivities.length > 1
+              ? `${createdActivities.length} Activity "${name}" berhasil dibuat`
+              : `Activity "${name}" has been created`,
+          data: createdActivities[0],
+          activities: createdActivities,
+          count: createdActivities.length,
         }),
         { status: 201 }
       );
