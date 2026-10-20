@@ -1,7 +1,7 @@
 "use client";
 
-import React, { useMemo, useState } from "react";
-import { ActivityItem } from "@/types";
+import React, { useEffect, useMemo, useState } from "react";
+import { ActivityItem, HolidayItem } from "@/types";
 import {
   Calendar as CalendarIcon,
   CheckCircle2,
@@ -9,6 +9,7 @@ import {
   ChevronLeft,
   ChevronRight,
   Clock,
+  Flag,
   Loader2,
   X,
 } from "lucide-react";
@@ -54,6 +55,50 @@ export default function ActivityCalendar({
   const [viewYear, setViewYear] = useState(now.getFullYear());
   const [viewMonth, setViewMonth] = useState(now.getMonth());
   const [selectedDateKey, setSelectedDateKey] = useState<string | null>(null);
+  const [holidays, setHolidays] = useState<HolidayItem[]>([]);
+  const [holidaysLoading, setHolidaysLoading] = useState(false);
+
+  // Fetch Indonesian Public Holidays & Collective Leave from Tanggal Merah API
+  useEffect(() => {
+    let active = true;
+    setHolidaysLoading(true);
+
+    fetch(`/api/v1/holidays?year=${viewYear}`)
+      .then((res) => res.json())
+      .then((data) => {
+        if (!active) return;
+        const list = Array.isArray(data?.data) ? data.data : [];
+        setHolidays(list);
+      })
+      .catch(() => {
+        if (active) setHolidays([]);
+      })
+      .finally(() => {
+        if (active) setHolidaysLoading(false);
+      });
+
+    return () => {
+      active = false;
+    };
+  }, [viewYear]);
+
+  const holidaysByDate = useMemo(() => {
+    const map = new Map<string, HolidayItem[]>();
+    for (const h of holidays) {
+      if (!h.date) continue;
+      const existing = map.get(h.date) || [];
+      existing.push(h);
+      map.set(h.date, existing);
+    }
+    return map;
+  }, [holidays]);
+
+  const monthHolidays = useMemo(() => {
+    const monthPrefix = `${viewYear}-${String(viewMonth + 1).padStart(2, "0")}-`;
+    return holidays
+      .filter((h) => h.date.startsWith(monthPrefix))
+      .sort((a, b) => a.date.localeCompare(b.date));
+  }, [holidays, viewYear, viewMonth]);
 
   const activitiesByDate = useMemo(() => {
     const map = new Map<string, ActivityItem[]>();
@@ -111,23 +156,35 @@ export default function ActivityCalendar({
       day: number;
       dateKey: string;
       isWeekend: boolean;
+      dayHolidays: HolidayItem[];
+      hasHoliday: boolean;
+      hasLeave: boolean;
       items: ActivityItem[];
     }[] = [];
 
     let filledDaysCount = 0;
     let emptyWorkdaysCount = 0;
+    let offDaysCount = 0;
     const uniqueMonthActivityIds = new Set<string>();
 
     for (let d = 1; d <= daysInMonth; d++) {
       const dateKey = toDateKey(viewYear, viewMonth, d);
       const dayOfWeek = new Date(viewYear, viewMonth, d).getDay();
       const isWeekend = dayOfWeek === 0 || dayOfWeek === 6;
+      const dayHolidays = holidaysByDate.get(dateKey) || [];
+      const hasHoliday = dayHolidays.some((h) => h.type === "holiday");
+      const hasLeave = dayHolidays.some((h) => h.type === "leave");
+      const isPublicOffDay = hasHoliday || hasLeave;
       const items = activitiesByDate.get(dateKey) || [];
+
+      if (isPublicOffDay) {
+        offDaysCount++;
+      }
 
       if (items.length > 0) {
         filledDaysCount++;
         items.forEach((it) => uniqueMonthActivityIds.add(String(it.id)));
-      } else if (!isWeekend) {
+      } else if (!isWeekend && !isPublicOffDay) {
         emptyWorkdaysCount++;
       }
 
@@ -135,6 +192,9 @@ export default function ActivityCalendar({
         day: d,
         dateKey,
         isWeekend,
+        dayHolidays,
+        hasHoliday,
+        hasLeave,
         items,
       });
     }
@@ -144,9 +204,10 @@ export default function ActivityCalendar({
       days,
       filledDaysCount,
       emptyWorkdaysCount,
+      offDaysCount,
       totalMonthActivities: uniqueMonthActivityIds.size,
     };
-  }, [viewYear, viewMonth, activitiesByDate]);
+  }, [viewYear, viewMonth, activitiesByDate, holidaysByDate]);
 
   const handlePrevMonth = () => {
     setSelectedDateKey(null);
@@ -181,9 +242,23 @@ export default function ActivityCalendar({
   const selectedDayItems = selectedDateKey
     ? activitiesByDate.get(selectedDateKey) || []
     : [];
+  const selectedDayHolidays = selectedDateKey
+    ? holidaysByDate.get(selectedDateKey) || []
+    : [];
 
-  const getContributionStyle = (count: number, isWeekend: boolean) => {
+  const getContributionStyle = (
+    count: number,
+    isWeekend: boolean,
+    hasHoliday: boolean,
+    hasLeave: boolean
+  ) => {
     if (count === 0) {
+      if (hasHoliday) {
+        return "bg-rose-50/90 border-rose-200 text-rose-700 hover:border-rose-300";
+      }
+      if (hasLeave) {
+        return "bg-amber-50/90 border-amber-200 text-amber-800 hover:border-amber-300";
+      }
       return isWeekend
         ? "bg-slate-50/50 border-slate-100 text-slate-300"
         : "bg-slate-50 border-dashed border-slate-200 text-slate-500 hover:border-slate-300";
@@ -211,12 +286,12 @@ export default function ActivityCalendar({
                 <h2 className="text-sm font-bold text-slate-900 sm:text-base">
                   Kalender Activity
                 </h2>
-                {loading && (
+                {(loading || holidaysLoading) && (
                   <Loader2 className="h-3.5 w-3.5 animate-spin text-emerald-600" />
                 )}
               </div>
               <p className="text-[11px] text-slate-500 sm:text-xs">
-                Cek tanggal terisi & tanggal kosong
+                Cek tanggal terisi, kosong & hari libur nasional
               </p>
             </div>
           </div>
@@ -268,7 +343,7 @@ export default function ActivityCalendar({
               }}
               className="h-9 w-full appearance-none rounded-xl border border-slate-200 bg-slate-50/70 pl-3 pr-7 text-xs font-bold text-slate-800 focus:border-brand-500 focus:outline-none"
             >
-              {[2024, 2025, 2026, 2027].map((yr) => (
+              {[2023, 2024, 2025, 2026, 2027].map((yr) => (
                 <option key={yr} value={yr}>
                   {yr}
                 </option>
@@ -307,10 +382,24 @@ export default function ActivityCalendar({
             <span className="h-1.5 w-1.5 rounded-full border border-dashed border-slate-400 bg-white" />
             {calendarData.emptyWorkdaysCount} Hari Kerja Kosong
           </span>
+          {calendarData.offDaysCount > 0 && (
+            <span className="inline-flex items-center gap-1 rounded-lg bg-rose-50 px-2 py-0.5 font-semibold text-rose-700">
+              <span className="h-1.5 w-1.5 rounded-full bg-rose-500" />
+              {calendarData.offDaysCount} Libur / Cuti
+            </span>
+          )}
         </div>
 
         {/* GitHub-style Color Legend */}
-        <div className="flex items-center gap-1 text-[10px] text-slate-400 sm:text-[11px]">
+        <div className="flex flex-wrap items-center gap-1 text-[10px] text-slate-400 sm:text-[11px]">
+          <span className="inline-flex items-center gap-1 mr-1 text-rose-600 font-medium">
+            <span className="h-2.5 w-2.5 rounded border border-rose-200 bg-rose-50" />
+            Libur
+          </span>
+          <span className="inline-flex items-center gap-1 mr-1.5 text-amber-700 font-medium">
+            <span className="h-2.5 w-2.5 rounded border border-amber-200 bg-amber-50" />
+            Cuti
+          </span>
           <span>Kosong</span>
           <span className="h-3 w-3 rounded border border-dashed border-slate-300 bg-slate-50" />
           <span className="h-3 w-3 rounded border border-emerald-300 bg-emerald-100" />
@@ -327,7 +416,11 @@ export default function ActivityCalendar({
             <div
               key={d}
               className={`pb-1 text-[10px] font-bold uppercase sm:text-[11px] ${
-                i >= 5 ? "text-slate-400" : "text-slate-500"
+                i === 6
+                  ? "text-rose-500"
+                  : i === 5
+                  ? "text-slate-400"
+                  : "text-slate-500"
               }`}
             >
               {d}
@@ -335,74 +428,129 @@ export default function ActivityCalendar({
           ))}
 
           {Array.from({ length: calendarData.leadingEmptyDays }).map((_, i) => (
-            <div key={`empty-${i}`} className="h-10 sm:h-14" />
+            <div key={`empty-${i}`} className="h-11 sm:h-14" />
           ))}
 
-          {calendarData.days.map(({ day, dateKey, isWeekend, items }) => {
-            const count = items.length;
-            const isSelected = selectedDateKey === dateKey;
-            const isToday = todayKey === dateKey;
-            const colorClass = getContributionStyle(count, isWeekend);
+          {calendarData.days.map(
+            ({
+              day,
+              dateKey,
+              isWeekend,
+              dayHolidays,
+              hasHoliday,
+              hasLeave,
+              items,
+            }) => {
+              const count = items.length;
+              const isSelected = selectedDateKey === dateKey;
+              const isToday = todayKey === dateKey;
+              const colorClass = getContributionStyle(
+                count,
+                isWeekend,
+                hasHoliday,
+                hasLeave
+              );
+              const holidayTooltip = dayHolidays
+                .map(
+                  (h) =>
+                    `${h.name} (${
+                      h.type === "holiday" ? "Libur Nasional" : "Cuti Bersama"
+                    })`
+                )
+                .join(", ");
 
-            return (
-              <button
-                key={dateKey}
-                type="button"
-                onClick={() =>
-                  setSelectedDateKey((prev) =>
-                    prev === dateKey ? null : dateKey
-                  )
-                }
-                className={`relative flex h-10 flex-col items-center justify-between rounded-xl border p-1 transition active:scale-95 sm:h-14 sm:p-2 ${colorClass} ${
-                  isSelected
-                    ? "ring-2 ring-brand-600 ring-offset-1"
-                    : isToday
-                    ? "ring-1 ring-slate-900/50"
-                    : ""
-                }`}
-              >
-                <div className="flex w-full items-center justify-between">
-                  <span className="text-[11px] font-bold leading-none sm:text-sm">
-                    {day}
-                  </span>
-                  {isToday && (
+              return (
+                <button
+                  key={dateKey}
+                  type="button"
+                  title={holidayTooltip || undefined}
+                  onClick={() =>
+                    setSelectedDateKey((prev) =>
+                      prev === dateKey ? null : dateKey
+                    )
+                  }
+                  className={`relative flex h-11 flex-col items-center justify-between rounded-xl border p-1 transition active:scale-95 sm:h-14 sm:p-2 ${colorClass} ${
+                    isSelected
+                      ? "ring-2 ring-brand-600 ring-offset-1"
+                      : isToday
+                      ? "ring-1 ring-slate-900/50"
+                      : ""
+                  }`}
+                >
+                  <div className="flex w-full items-center justify-between">
                     <span
-                      className={`h-1.5 w-1.5 rounded-full ${
-                        count >= 4 ? "bg-white" : "bg-brand-600"
-                      }`}
-                    />
-                  )}
-                </div>
-
-                <div className="w-full text-right">
-                  {count > 0 ? (
-                    <span
-                      className={`inline-block rounded px-1 text-[9px] font-bold leading-tight sm:text-[10px] ${
-                        count >= 4
-                          ? "bg-white/20 text-white"
-                          : "bg-black/5 text-current"
+                      className={`text-[11px] font-bold leading-none sm:text-sm ${
+                        count < 4 && hasHoliday
+                          ? "text-rose-600"
+                          : count < 4 && hasLeave
+                          ? "text-amber-700"
+                          : ""
                       }`}
                     >
-                      {count} <span className="hidden sm:inline">act</span>
+                      {day}
                     </span>
-                  ) : (
-                    <span className="text-[9px] opacity-50">-</span>
-                  )}
-                </div>
-              </button>
-            );
-          })}
+                    <div className="flex items-center gap-0.5">
+                      {(hasHoliday || hasLeave) && (
+                        <span
+                          className={`h-1.5 w-1.5 rounded-full ${
+                            hasHoliday
+                              ? count >= 4
+                                ? "bg-rose-200"
+                                : "bg-rose-500"
+                              : count >= 4
+                              ? "bg-amber-200"
+                              : "bg-amber-500"
+                          }`}
+                        />
+                      )}
+                      {isToday && (
+                        <span
+                          className={`h-1.5 w-1.5 rounded-full ${
+                            count >= 4 ? "bg-white" : "bg-brand-600"
+                          }`}
+                        />
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="w-full text-right">
+                    {count > 0 ? (
+                      <span
+                        className={`inline-block rounded px-1 text-[9px] font-bold leading-tight sm:text-[10px] ${
+                          count >= 4
+                            ? "bg-white/20 text-white"
+                            : "bg-black/5 text-current"
+                        }`}
+                      >
+                        {count} <span className="hidden sm:inline">act</span>
+                      </span>
+                    ) : hasHoliday ? (
+                      <span className="block truncate text-[8px] font-bold text-rose-600 sm:text-[9px]">
+                        Libur
+                      </span>
+                    ) : hasLeave ? (
+                      <span className="block truncate text-[8px] font-bold text-amber-700 sm:text-[9px]">
+                        Cuti
+                      </span>
+                    ) : (
+                      <span className="text-[9px] opacity-50">-</span>
+                    )}
+                  </div>
+                </button>
+              );
+            }
+          )}
         </div>
       </div>
 
-      {/* Selected Date Activity Details Panel */}
+      {/* Selected Date Activity & Holiday Details Panel */}
       {selectedDateKey && (
         <div className="mt-3.5 rounded-xl border border-slate-200 bg-slate-50 p-3">
           <div className="flex items-center justify-between border-b border-slate-200/80 pb-2">
             <h3 className="text-xs font-bold text-slate-800">
-              Activity {Number(selectedDateKey.split("-")[2])}{" "}
+              Detail {Number(selectedDateKey.split("-")[2])}{" "}
               {MONTH_NAMES[Number(selectedDateKey.split("-")[1]) - 1]}{" "}
-              {selectedDateKey.split("-")[0]} ({selectedDayItems.length})
+              {selectedDateKey.split("-")[0]} ({selectedDayItems.length} Activity)
             </h3>
             <button
               type="button"
@@ -413,9 +561,54 @@ export default function ActivityCalendar({
             </button>
           </div>
 
+          {/* Holiday / Leave Banner for Selected Date */}
+          {selectedDayHolidays.length > 0 && (
+            <div className="mt-2 space-y-1.5">
+              {selectedDayHolidays.map((h, idx) => {
+                const isHoliday = h.type === "holiday";
+                return (
+                  <div
+                    key={`${h.date}-${idx}`}
+                    className={`flex items-center justify-between gap-2 rounded-xl border px-3 py-2 text-xs ${
+                      isHoliday
+                        ? "border-rose-200 bg-rose-50 text-rose-900"
+                        : "border-amber-200 bg-amber-50 text-amber-900"
+                    }`}
+                  >
+                    <div className="flex min-w-0 items-center gap-2">
+                      <Flag
+                        className={`h-3.5 w-3.5 shrink-0 ${
+                          isHoliday ? "text-rose-600" : "text-amber-600"
+                        }`}
+                      />
+                      <span className="font-semibold leading-snug">
+                        {h.name}
+                      </span>
+                    </div>
+                    <span
+                      className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-bold ${
+                        isHoliday
+                          ? "bg-rose-100 text-rose-700"
+                          : "bg-amber-100 text-amber-800"
+                      }`}
+                    >
+                      {isHoliday ? "Libur Nasional" : "Cuti Bersama"}
+                    </span>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+
           {selectedDayItems.length === 0 ? (
             <p className="py-3 text-center text-xs text-slate-500">
-              Tanggal ini masih <strong>kosong</strong> (belum ada activity).
+              {selectedDayHolidays.length > 0 ? (
+                <>Tidak ada activity pada hari libur/cuti ini.</>
+              ) : (
+                <>
+                  Tanggal ini masih <strong>kosong</strong> (belum ada activity).
+                </>
+              )}
             </p>
           ) : (
             <ul className="mt-2 space-y-1.5">
@@ -456,6 +649,52 @@ export default function ActivityCalendar({
               })}
             </ul>
           )}
+        </div>
+      )}
+
+      {/* Monthly Holidays & Collective Leave Summary Footer */}
+      {monthHolidays.length > 0 && (
+        <div className="mt-3 border-t border-slate-100 pt-2.5">
+          <p className="mb-1.5 text-[10px] font-bold uppercase tracking-wider text-slate-400">
+            Hari Libur & Cuti Bersama ({MONTH_NAMES[viewMonth]} {viewYear})
+          </p>
+          <div className="flex flex-wrap gap-1.5">
+            {monthHolidays.map((h, idx) => {
+              const dayNum = Number(h.date.split("-")[2]);
+              const isHoliday = h.type === "holiday";
+              const isSelected = selectedDateKey === h.date;
+              return (
+                <button
+                  key={`${h.date}-${idx}`}
+                  type="button"
+                  onClick={() =>
+                    setSelectedDateKey((prev) =>
+                      prev === h.date ? null : h.date
+                    )
+                  }
+                  className={`inline-flex max-w-full items-center gap-1.5 rounded-lg border px-2 py-1 text-left text-[11px] transition active:scale-95 ${
+                    isHoliday
+                      ? "border-rose-200/80 bg-rose-50/70 text-rose-800 hover:bg-rose-100/80"
+                      : "border-amber-200/80 bg-amber-50/70 text-amber-900 hover:bg-amber-100/80"
+                  } ${isSelected ? "ring-1 ring-brand-600" : ""}`}
+                >
+                  <span
+                    className={`shrink-0 rounded px-1 py-0.2 text-[10px] font-bold ${
+                      isHoliday
+                        ? "bg-rose-200/70 text-rose-900"
+                        : "bg-amber-200/70 text-amber-950"
+                    }`}
+                  >
+                    {dayNum} {MONTH_NAMES[viewMonth].slice(0, 3)}
+                  </span>
+                  <span className="truncate font-medium">{h.name}</span>
+                  <span className="shrink-0 text-[9px] opacity-75">
+                    ({isHoliday ? "Libur" : "Cuti"})
+                  </span>
+                </button>
+              );
+            })}
+          </div>
         </div>
       )}
     </section>

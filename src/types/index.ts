@@ -109,3 +109,10 @@ export const ACTIVITY_TYPES = [
   { id: "1", name: "Off Plan", badgeClass: "bg-amber-50 text-amber-700 border-amber-200" },
   { id: "3", name: "Rebaseline", badgeClass: "bg-purple-50 text-purple-700 border-purple-200" },
 ] as const;
+
+export interface HolidayItem {
+  date: string;
+  day: string;
+  name: string;
+  type: "holiday" | "leave";
+}

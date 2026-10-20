@@ -81,6 +81,32 @@ async function handleApiV1Request(
   const pathSegments = context.params.path || [];
   const subPath = "/" + pathSegments.join("/");
 
+  // Public endpoint for Indonesian Holidays & Collective Leave (Tanggal Merah API)
+  if (req.method === "GET" && subPath === "/holidays") {
+    const year = req.nextUrl.searchParams.get("year") || String(new Date().getFullYear());
+    const month = req.nextUrl.searchParams.get("month");
+    const type = req.nextUrl.searchParams.get("type");
+
+    const params = new URLSearchParams({ year });
+    if (month) params.set("month", month);
+    if (type) params.set("type", type);
+
+    try {
+      const upstream = await fetch(
+        `https://tanggalmerah.upset.dev/api/holidays?${params.toString()}`,
+        { next: { revalidate: 86400 } }
+      );
+      if (!upstream.ok) {
+        return NextResponse.json({ success: true, data: [] });
+      }
+      const json = await upstream.json();
+      return NextResponse.json(json);
+    } catch (error: any) {
+      console.error("Failed to fetch holidays:", error);
+      return NextResponse.json({ success: true, data: [] });
+    }
+  }
+
   // If DATABASE_URL is not configured yet, proxy server-to-server to remote backend (zero CORS!)
   if (!isLocalDatabaseConfigured()) {
     if (req.method === "GET" && subPath === "/activities/calendar") {
