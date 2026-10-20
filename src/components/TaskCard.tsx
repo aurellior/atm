@@ -76,6 +76,7 @@ export default function TaskCard({
 }: TaskCardProps) {
   const [expanded, setExpanded] = useState(defaultExpanded);
   const [activities, setActivities] = useState<ActivityItem[]>([]);
+  const [hasLoadedOnce, setHasLoadedOnce] = useState(false);
   const [loadingActivities, setLoadingActivities] = useState(false);
   const [deletingTask, setDeletingTask] = useState(false);
 
@@ -88,23 +89,27 @@ export default function TaskCard({
   const [togglingId, setTogglingId] = useState<string | null>(null);
   const [deletingActId, setDeletingActId] = useState<string | null>(null);
 
-  const fetchActivities = useCallback(async () => {
-    setLoadingActivities(true);
-    try {
-      const list = await api.getActivitiesByTask(task.id);
-      setActivities(list);
-    } catch (err) {
-      console.error("Gagal memuat activity:", err);
-    } finally {
-      setLoadingActivities(false);
-    }
-  }, [task.id]);
+  const fetchActivities = useCallback(
+    async (silent = false) => {
+      if (!silent) setLoadingActivities(true);
+      try {
+        const list = await api.getActivitiesByTask(task.id);
+        setActivities(list);
+        setHasLoadedOnce(true);
+      } catch (err) {
+        console.error("Gagal memuat activity:", err);
+      } finally {
+        if (!silent) setLoadingActivities(false);
+      }
+    },
+    [task.id]
+  );
 
   useEffect(() => {
     if (expanded) {
-      fetchActivities();
+      fetchActivities(hasLoadedOnce);
     }
-  }, [expanded, fetchActivities]);
+  }, [expanded, fetchActivities, hasLoadedOnce]);
 
   const getDefaultValidatorId = useCallback(() => {
     if (typeof window !== "undefined") {
@@ -125,6 +130,24 @@ export default function TaskCard({
   const handleToggleActivityStatus = async (act: ActivityItem) => {
     const nextStatus: ActivityStatus =
       act.complete_status === "DONE" ? "IN_PROGRESS" : "DONE";
+    const nextActualDate =
+      nextStatus === "DONE"
+        ? toInputDate(act.actual_end_date) || getTodayStr()
+        : null;
+
+    // Optimistic UI update — instant feedback without spinner flash
+    const previousActivities = activities;
+    setActivities((prev) =>
+      prev.map((item) =>
+        String(item.id) === String(act.id)
+          ? {
+              ...item,
+              complete_status: nextStatus,
+              actual_end_date: nextActualDate,
+            }
+          : item
+      )
+    );
     setTogglingId(String(act.id));
 
     try {
@@ -137,16 +160,14 @@ export default function TaskCard({
         name: act.name,
         start_date: toInputDate(act.start_date) || getTodayStr(),
         target_end_date: toInputDate(act.target_end_date) || getTodayStr(),
-        actual_end_date:
-          nextStatus === "DONE"
-            ? toInputDate(act.actual_end_date) || getTodayStr()
-            : null,
+        actual_end_date: nextActualDate,
         complete_status: nextStatus,
         notes: act.notes || "",
       });
-      await fetchActivities();
+      fetchActivities(true);
       onTaskMutated();
     } catch (err: any) {
+      setActivities(previousActivities);
       alert(err.message || "Gagal mengubah status activity");
     } finally {
       setTogglingId(null);
@@ -155,12 +176,18 @@ export default function TaskCard({
 
   const handleDeleteActivity = async (act: ActivityItem) => {
     if (!confirm(`Hapus activity "${act.name}"?`)) return;
+    const previousActivities = activities;
     setDeletingActId(String(act.id));
+    // Optimistically remove item so there's no jarring reload
+    setActivities((prev) =>
+      prev.filter((item) => String(item.id) !== String(act.id))
+    );
     try {
       await api.deleteActivity(task.id, act.id);
-      await fetchActivities();
+      fetchActivities(true);
       onTaskMutated();
     } catch (err: any) {
+      setActivities(previousActivities);
       alert(err.message || "Gagal menghapus activity");
     } finally {
       setDeletingActId(null);
@@ -179,7 +206,14 @@ export default function TaskCard({
     }
   };
 
-  const progress = Math.min(100, Math.max(0, Number(task.progress || 0)));
+  const completedActCount = activities.filter(
+    (a) => a.complete_status === "DONE"
+  ).length;
+  const computedProgress =
+    hasLoadedOnce && activities.length > 0
+      ? Math.round((completedActCount / activities.length) * 100)
+      : Number(task.progress || 0);
+  const progress = Math.min(100, Math.max(0, computedProgress));
   const isComplete = progress === 100;
 
   return (
@@ -326,10 +360,22 @@ export default function TaskCard({
               </button>
             </div>
 
-            {loadingActivities ? (
-              <div className="flex items-center justify-center gap-2 py-6 text-xs text-slate-500">
-                <Loader2 className="h-4 w-4 animate-spin text-brand-600" />
-                Memuat activity...
+            {loadingActivities && !hasLoadedOnce ? (
+              <div className="space-y-2">
+                {[1, 2].map((n) => (
+                  <div
+                    key={n}
+                    className="flex animate-pulse items-center justify-between rounded-xl border border-slate-200/80 bg-white p-3"
+                  >
+                    <div className="flex flex-1 items-center gap-2.5">
+                      <div className="h-5 w-5 rounded-full bg-slate-100" />
+                      <div className="flex-1 space-y-1.5">
+                        <div className="h-3.5 w-2/3 rounded bg-slate-100" />
+                        <div className="h-2.5 w-1/3 rounded bg-slate-100" />
+                      </div>
+                    </div>
+                  </div>
+                ))}
               </div>
             ) : activities.length === 0 ? (
               <div className="rounded-xl border border-dashed border-slate-200 bg-white p-5 text-center">
@@ -381,12 +427,10 @@ export default function TaskCard({
                           }
                           className="mt-0.5 shrink-0 text-slate-400 transition active:scale-90"
                         >
-                          {isToggling ? (
-                            <Loader2 className="h-5 w-5 animate-spin text-brand-600" />
-                          ) : isDone ? (
-                            <CheckCircle2 className="h-5 w-5 text-emerald-600" />
+                          {isDone ? (
+                            <CheckCircle2 className="h-5 w-5 text-emerald-600 transition-transform" />
                           ) : (
-                            <Circle className="h-5 w-5 text-slate-300 hover:text-brand-600" />
+                            <Circle className="h-5 w-5 text-slate-300 transition-colors hover:text-brand-600" />
                           )}
                         </button>
 
@@ -474,7 +518,7 @@ export default function TaskCard({
         initialActivity={editingActivity}
         defaultDate={defaultDate}
         onSuccess={async () => {
-          await fetchActivities();
+          await fetchActivities(true);
           onTaskMutated();
         }}
       />

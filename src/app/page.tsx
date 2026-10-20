@@ -79,77 +79,81 @@ export default function HomePage() {
     projectScrollRef.current?.scrollBy({ left: offset, behavior: "smooth" });
   };
 
-  const loadCalendarData = useCallback(async () => {
-    setLoadingCalendar(true);
+  const loadCalendarData = useCallback(async (silent = false) => {
+    if (!silent) setLoadingCalendar(true);
     try {
       const allActs = await api.getCalendarActivities();
       setCalendarActivities(allActs);
     } catch (err) {
       console.error("Gagal memuat kalender activity:", err);
     } finally {
-      setLoadingCalendar(false);
+      if (!silent) setLoadingCalendar(false);
     }
   }, []);
 
-  const loadInitialData = useCallback(async () => {
-    if (!user) return;
-    setLoadingProjects(true);
-    try {
-      const [joinedList, empList] = await Promise.all([
-        api.getJoinedProjects(),
-        api.getEmployeesSelect().catch(() => []),
-      ]);
+  const loadInitialData = useCallback(
+    async (silent = false) => {
+      if (!user) return;
+      if (!silent) setLoadingProjects(true);
+      try {
+        const [joinedList, empList] = await Promise.all([
+          api.getJoinedProjects(),
+          api.getEmployeesSelect().catch(() => []),
+        ]);
 
-      setProjects(joinedList);
-      setEmployees(empList);
+        setProjects(joinedList);
+        if (empList.length > 0) setEmployees(empList);
 
-      setSelectedProjectId((prev) => {
-        if (prev && joinedList.some((p) => String(p.id) === prev)) {
-          return prev;
-        }
-        return "";
-      });
-    } catch (err) {
-      console.error("Gagal memuat data awal:", err);
-    } finally {
-      setLoadingProjects(false);
-    }
-  }, [user]);
+        setSelectedProjectId((prev) => {
+          if (prev && joinedList.some((p) => String(p.id) === prev)) {
+            return prev;
+          }
+          return "";
+        });
+      } catch (err) {
+        console.error("Gagal memuat data awal:", err);
+      } finally {
+        if (!silent) setLoadingProjects(false);
+      }
+    },
+    [user]
+  );
 
-  const loadTasksForProject = useCallback(async () => {
-    if (!selectedProjectId) {
-      setTasks([]);
-      setTotalTasks(0);
-      setTotalTaskPages(1);
-      return;
-    }
-    setLoadingTasks(true);
-    try {
-      const res = await api.getTasksByProject(selectedProjectId, {
-        page: taskPage,
-        limit: TASKS_PER_PAGE,
-      });
-      setTasks(res.tasks);
-      setTotalTasks(res.total || res.tasks.length);
-      setTotalTaskPages(Math.max(1, res.totalPages || 1));
-    } catch (err) {
-      console.error("Gagal memuat daftar task:", err);
-    } finally {
-      setLoadingTasks(false);
-    }
-  }, [selectedProjectId, taskPage]);
+  const loadTasksForProject = useCallback(
+    async (silent = false) => {
+      if (!selectedProjectId) {
+        setTasks([]);
+        setTotalTasks(0);
+        setTotalTaskPages(1);
+        return;
+      }
+      if (!silent) setLoadingTasks(true);
+      try {
+        const res = await api.getTasksByProject(selectedProjectId, {
+          page: taskPage,
+          limit: TASKS_PER_PAGE,
+        });
+        setTasks(res.tasks);
+        setTotalTasks(res.total || res.tasks.length);
+        setTotalTaskPages(Math.max(1, res.totalPages || 1));
+      } catch (err) {
+        console.error("Gagal memuat daftar task:", err);
+      } finally {
+        if (!silent) setLoadingTasks(false);
+      }
+    },
+    [selectedProjectId, taskPage]
+  );
 
   const handleDataMutated = useCallback(async () => {
-    await loadTasksForProject();
-    try {
-      const [joinedList] = await Promise.all([
-        api.getJoinedProjects(),
-        loadCalendarData(),
-      ]);
-      setProjects(joinedList);
-    } catch {
-      // ignore background refresh error
-    }
+    await Promise.all([
+      loadTasksForProject(true),
+      loadCalendarData(true),
+      api
+        .getJoinedProjects()
+        .then((joinedList) => setProjects(joinedList))
+        .catch(() => {}),
+    ]);
   }, [loadTasksForProject, loadCalendarData]);
 
   useEffect(() => {
@@ -228,10 +232,21 @@ export default function HomePage() {
             </div>
           </div>
 
-          {loadingProjects ? (
-            <div className="flex items-center gap-2 py-6 text-xs text-slate-500">
-              <Loader2 className="h-4 w-4 animate-spin text-brand-600" />
-              Memuat project...
+          {loadingProjects && projects.length === 0 ? (
+            <div className="flex gap-2.5 overflow-hidden pb-2">
+              {[1, 2, 3, 4].map((n) => (
+                <div
+                  key={n}
+                  className="h-[96px] min-w-[185px] shrink-0 animate-pulse rounded-2xl border border-slate-200/80 bg-white p-3.5 sm:min-w-[220px]"
+                >
+                  <div className="flex justify-between">
+                    <div className="h-4 w-16 rounded bg-slate-100" />
+                    <div className="h-4 w-8 rounded bg-slate-100" />
+                  </div>
+                  <div className="mt-3 h-4 w-3/4 rounded bg-slate-100" />
+                  <div className="mt-3 h-1.5 w-full rounded-full bg-slate-100" />
+                </div>
+              ))}
             </div>
           ) : projects.length === 0 ? (
             <div className="rounded-2xl border border-dashed border-slate-300 bg-white p-7 text-center">
@@ -381,6 +396,9 @@ export default function HomePage() {
                       {totalTasks}
                     </span>
                   )}
+                  {loadingTasks && tasks.length > 0 && (
+                    <Loader2 className="h-3.5 w-3.5 shrink-0 animate-spin text-brand-600" />
+                  )}
                 </div>
                 <p className="text-[11px] text-slate-500 sm:text-xs">
                   Ketuk kartu Task untuk kelola Activity (maks {TASKS_PER_PAGE}{" "}
@@ -403,10 +421,26 @@ export default function HomePage() {
 
             {/* Task List (Expandable Cards) */}
             <div className="mt-3.5 space-y-3">
-              {loadingTasks ? (
-                <div className="flex items-center justify-center gap-2 py-12 text-xs text-slate-500">
-                  <Loader2 className="h-5 w-5 animate-spin text-brand-600" />
-                  Memuat daftar task...
+              {loadingTasks && tasks.length === 0 ? (
+                <div className="space-y-3">
+                  {[1, 2, 3].map((n) => (
+                    <div
+                      key={n}
+                      className="animate-pulse rounded-2xl border border-slate-200/80 bg-white p-4 sm:p-5"
+                    >
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="flex flex-1 items-center gap-3">
+                          <div className="h-7 w-7 rounded-xl bg-slate-100" />
+                          <div className="flex-1 space-y-2">
+                            <div className="h-4 w-2/3 rounded-md bg-slate-100" />
+                            <div className="h-3 w-1/3 rounded-md bg-slate-100" />
+                          </div>
+                        </div>
+                        <div className="h-8 w-16 rounded-xl bg-slate-100" />
+                      </div>
+                      <div className="mt-3.5 h-1.5 w-full rounded-full bg-slate-100" />
+                    </div>
+                  ))}
                 </div>
               ) : tasks.length === 0 ? (
                 <div className="rounded-2xl border border-dashed border-slate-300 bg-white p-8 text-center">
@@ -541,8 +575,8 @@ export default function HomePage() {
         onClose={() => setIsJoinModalOpen(false)}
         joinedProjects={projects}
         onSuccess={() => {
-          loadInitialData();
-          loadCalendarData();
+          loadInitialData(true);
+          loadCalendarData(true);
         }}
       />
 
