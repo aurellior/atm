@@ -14,7 +14,9 @@ interface TaskFormModalProps {
   employees: EmployeeOption[];
   initialTask?: TaskItem | null;
   defaultDate?: string | null;
-  onSuccess: () => void;
+  onSuccess: () => Promise<void> | void;
+  onSubmitStart?: (isEdit: boolean, taskId?: string | number) => void;
+  onSubmitEnd?: () => void;
 }
 
 function getTodayStr() {
@@ -39,6 +41,8 @@ export default function TaskFormModal({
   initialTask,
   defaultDate,
   onSuccess,
+  onSubmitStart,
+  onSubmitEnd,
 }: TaskFormModalProps) {
   const isEdit = Boolean(initialTask);
 
@@ -99,39 +103,49 @@ export default function TaskFormModal({
       return;
     }
 
+    const trimmedName = name.trim();
+    const currentAssignorId = assignorId;
+    const currentStartDate = startDate;
+    const currentTargetDate = targetDate;
+    const currentActualDate = actualDate || null;
+    const currentIsEdit = isEdit && Boolean(initialTask);
+    const currentTaskId = initialTask?.id;
+
     setSubmitting(true);
     setError("");
+    onSubmitStart?.(currentIsEdit, currentTaskId);
+    onClose();
 
     try {
       if (typeof window !== "undefined") {
-        localStorage.setItem("atm_last_assignor", assignorId);
+        localStorage.setItem("atm_last_assignor", currentAssignorId);
       }
 
-      if (isEdit && initialTask) {
+      if (currentIsEdit && currentTaskId !== undefined) {
         await api.editTask({
-          id: initialTask.id,
-          assignor_id: assignorId,
-          name: name.trim(),
-          start_date: startDate,
-          target_end_date: targetDate,
-          actual_end_date: actualDate || null,
+          id: currentTaskId,
+          assignor_id: currentAssignorId,
+          name: trimmedName,
+          start_date: currentStartDate,
+          target_end_date: currentTargetDate,
+          actual_end_date: currentActualDate,
         });
       } else {
         await api.createTask({
           project_id: projectId,
-          assignor_id: assignorId,
-          name: name.trim(),
-          start_date: startDate,
-          target_end_date: targetDate,
-          actual_end_date: actualDate || null,
+          assignor_id: currentAssignorId,
+          name: trimmedName,
+          start_date: currentStartDate,
+          target_end_date: currentTargetDate,
+          actual_end_date: currentActualDate,
         });
       }
-      onSuccess();
-      onClose();
+      await onSuccess();
     } catch (err: any) {
-      setError(err.message || "Gagal menyimpan task");
+      alert(err.message || "Gagal menyimpan task");
     } finally {
       setSubmitting(false);
+      onSubmitEnd?.();
     }
   };
 

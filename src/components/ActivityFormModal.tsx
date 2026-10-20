@@ -27,7 +27,13 @@ interface ActivityFormModalProps {
   employees: EmployeeOption[];
   initialActivity?: ActivityItem | null;
   defaultDate?: string | null;
-  onSuccess: () => void;
+  onSuccess: () => Promise<void> | void;
+  onSubmitStart?: (
+    isEdit: boolean,
+    expectedCount: number,
+    activityId?: string | number
+  ) => void;
+  onSubmitEnd?: () => void;
 }
 
 const SHORT_MONTHS = [
@@ -71,6 +77,8 @@ export default function ActivityFormModal({
   initialActivity,
   defaultDate,
   onSuccess,
+  onSubmitStart,
+  onSubmitEnd,
 }: ActivityFormModalProps) {
   const isEdit = Boolean(initialActivity);
 
@@ -267,51 +275,67 @@ export default function ActivityFormModal({
       return;
     }
 
+    const trimmedName = name.trim();
+    const currentValidatorId = validatorId;
+    const currentTypeId = typeId;
+    const currentStatus = status;
+    const currentStartDate = startDate;
+    const currentTargetDate = targetDate;
+    const finalActualDate =
+      actualDate || (status === "DONE" ? startDate : null);
+    const trimmedNotes = notes.trim();
+    const activeDatesToCreate = dateRangeBreakdown.activeDates;
+    const currentIsEdit = isEdit && Boolean(initialActivity);
+    const currentActivityId = initialActivity?.id;
+    const expectedCount =
+      !currentIsEdit && dateRangeBreakdown.isMultiDay
+        ? Math.max(1, activeDatesToCreate.length)
+        : 1;
+
     setSubmitting(true);
     setError("");
+    onSubmitStart?.(currentIsEdit, expectedCount, currentActivityId);
+    onClose();
 
     try {
       if (typeof window !== "undefined") {
-        localStorage.setItem("atm_last_validator", validatorId);
+        localStorage.setItem("atm_last_validator", currentValidatorId);
       }
 
-      const finalActualDate =
-        actualDate || (status === "DONE" ? startDate : null);
-
-      if (isEdit && initialActivity) {
+      if (currentIsEdit && currentActivityId !== undefined) {
         await api.editActivity({
           task_id: task.id,
-          activity_id: initialActivity.id,
-          validator_id: validatorId,
-          activity_type_id: typeId,
-          name: name.trim(),
-          start_date: startDate,
-          target_end_date: targetDate,
+          activity_id: currentActivityId,
+          validator_id: currentValidatorId,
+          activity_type_id: currentTypeId,
+          name: trimmedName,
+          start_date: currentStartDate,
+          target_end_date: currentTargetDate,
           actual_end_date: finalActualDate,
-          complete_status: status,
-          notes: notes.trim(),
+          complete_status: currentStatus,
+          notes: trimmedNotes,
         });
       } else {
         await api.createActivity({
           task_id: task.id,
-          validator_id: validatorId,
-          activity_type_id: typeId,
-          name: name.trim(),
-          start_date: startDate,
-          target_end_date: targetDate,
+          validator_id: currentValidatorId,
+          activity_type_id: currentTypeId,
+          name: trimmedName,
+          start_date: currentStartDate,
+          target_end_date: currentTargetDate,
           actual_end_date: finalActualDate,
-          complete_status: status,
-          notes: notes.trim(),
-          dates: dateRangeBreakdown.activeDates,
+          complete_status: currentStatus,
+          notes: trimmedNotes,
+          dates: activeDatesToCreate,
         });
       }
 
-      onSuccess();
-      onClose();
+      await onSuccess();
     } catch (err: any) {
-      setError(err.message || "Gagal menyimpan activity");
+      alert(err.message || "Gagal menyimpan activity");
     } finally {
       setSubmitting(false);
+      onSubmitEnd?.();
     }
   };
 

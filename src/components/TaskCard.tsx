@@ -29,7 +29,39 @@ interface TaskCardProps {
   defaultExpanded?: boolean;
   defaultDate?: string | null;
   onEditTask: (task: TaskItem) => void;
-  onTaskMutated: () => void;
+  onTaskMutated: () => Promise<void> | void;
+}
+
+function ActivitySkeletonRow({ label }: { label?: string }) {
+  return (
+    <div className="animate-pulse rounded-xl border border-brand-200/70 bg-white p-3 shadow-sm">
+      {label && (
+        <div className="mb-2 inline-flex items-center gap-1.5 rounded-full bg-brand-50 px-2 py-0.5 text-[10px] font-bold text-brand-600">
+          <Loader2 className="h-2.5 w-2.5 animate-spin" />
+          <span>{label}</span>
+        </div>
+      )}
+      <div className="flex items-start justify-between gap-2.5">
+        <div className="flex flex-1 items-start gap-2.5">
+          <div className="mt-0.5 h-5 w-5 shrink-0 rounded-full bg-slate-200/80" />
+          <div className="flex-1 space-y-2">
+            <div className="flex items-center gap-2">
+              <div className="h-3.5 w-3/5 rounded-md bg-slate-200/80" />
+              <div className="h-4 w-16 rounded-md bg-slate-100" />
+            </div>
+            <div className="flex items-center gap-2.5">
+              <div className="h-2.5 w-24 rounded bg-slate-100" />
+              <div className="h-2.5 w-28 rounded bg-slate-100" />
+            </div>
+          </div>
+        </div>
+        <div className="flex shrink-0 items-center gap-1">
+          <div className="h-7 w-7 rounded-lg bg-slate-100" />
+          <div className="h-7 w-7 rounded-lg bg-slate-100" />
+        </div>
+      </div>
+    </div>
+  );
 }
 
 function getTodayStr() {
@@ -89,6 +121,10 @@ export default function TaskCard({
 
   const [togglingId, setTogglingId] = useState<string | null>(null);
   const [deletingActId, setDeletingActId] = useState<string | null>(null);
+  const [pendingActivityCount, setPendingActivityCount] = useState<number>(0);
+  const [editingActivityId, setEditingActivityId] = useState<string | null>(
+    null
+  );
 
   const fetchActivities = useCallback(
     async (silent = false) => {
@@ -205,9 +241,10 @@ export default function TaskCard({
     setDeletingTask(true);
     try {
       await api.deleteTask(task.id);
-      onTaskMutated();
+      await onTaskMutated();
     } catch (err: any) {
       alert(err.message || "Gagal menghapus task");
+    } finally {
       setDeletingTask(false);
     }
   };
@@ -226,7 +263,9 @@ export default function TaskCard({
     <>
       <div
         className={`overflow-hidden rounded-2xl border bg-white transition-all ${
-          expanded
+          deletingTask
+            ? "pointer-events-none animate-pulse opacity-60"
+            : expanded
             ? "border-brand-500/40 shadow-sm ring-1 ring-brand-500/10"
             : "border-slate-200/90 hover:border-slate-300"
         }`}
@@ -345,40 +384,37 @@ export default function TaskCard({
         {expanded && (
           <div className="border-t border-slate-100 bg-slate-50/70 p-3.5 sm:p-5">
             <div className="mb-3 flex items-center justify-between">
-              <h4 className="text-[11px] font-bold uppercase tracking-wider text-slate-500">
-                Daftar Activity ({activities.length})
-              </h4>
+              <div className="flex items-center gap-1.5">
+                <h4 className="text-[11px] font-bold uppercase tracking-wider text-slate-500">
+                  Daftar Activity ({activities.length + pendingActivityCount})
+                </h4>
+                {(loadingActivities ||
+                  pendingActivityCount > 0 ||
+                  Boolean(editingActivityId)) && (
+                  <Loader2 className="h-3 w-3 animate-spin text-brand-600" />
+                )}
+              </div>
               <button
                 type="button"
                 onClick={() => {
                   setEditingActivity(null);
                   setIsActivityModalOpen(true);
                 }}
-                className="inline-flex items-center gap-1 rounded-xl bg-brand-600 px-3 py-1.5 text-xs font-bold text-white shadow-sm transition active:scale-95 hover:bg-brand-700"
+                disabled={pendingActivityCount > 0}
+                className="inline-flex items-center gap-1 rounded-xl bg-brand-600 px-3 py-1.5 text-xs font-bold text-white shadow-sm transition active:scale-95 hover:bg-brand-700 disabled:opacity-60"
               >
                 <Plus className="h-3.5 w-3.5" />
                 Tambah Activity
               </button>
             </div>
 
-            {loadingActivities && !hasLoadedOnce ? (
+            {loadingActivities ? (
               <div className="space-y-2">
                 {[1, 2].map((n) => (
-                  <div
-                    key={n}
-                    className="flex animate-pulse items-center justify-between rounded-xl border border-slate-200/80 bg-white p-3"
-                  >
-                    <div className="flex flex-1 items-center gap-2.5">
-                      <div className="h-5 w-5 rounded-full bg-slate-100" />
-                      <div className="flex-1 space-y-1.5">
-                        <div className="h-3.5 w-2/3 rounded bg-slate-100" />
-                        <div className="h-2.5 w-1/3 rounded bg-slate-100" />
-                      </div>
-                    </div>
-                  </div>
+                  <ActivitySkeletonRow key={n} />
                 ))}
               </div>
-            ) : activities.length === 0 ? (
+            ) : activities.length === 0 && pendingActivityCount === 0 ? (
               <div className="rounded-xl border border-dashed border-slate-200 bg-white p-5 text-center">
                 <p className="text-xs text-slate-500">
                   Belum ada activity di dalam task ini.
@@ -396,7 +432,32 @@ export default function TaskCard({
               </div>
             ) : (
               <div className="space-y-2">
+                {pendingActivityCount > 0 &&
+                  Array.from({
+                    length: Math.min(pendingActivityCount, 5),
+                  }).map((_, idx) => (
+                    <ActivitySkeletonRow
+                      key={`pending-act-${idx}`}
+                      label={
+                        idx === 0
+                          ? pendingActivityCount > 1
+                            ? `Menyimpan ${pendingActivityCount} activity baru...`
+                            : "Menyimpan activity baru..."
+                          : undefined
+                      }
+                    />
+                  ))}
+
                 {activities.map((act) => {
+                  if (editingActivityId === String(act.id)) {
+                    return (
+                      <ActivitySkeletonRow
+                        key={act.id}
+                        label="Memperbarui activity..."
+                      />
+                    );
+                  }
+
                   const isDone = act.complete_status === "DONE";
                   const isToggling = togglingId === String(act.id);
                   const isDeleting = deletingActId === String(act.id);
@@ -519,6 +580,18 @@ export default function TaskCard({
         employees={employees}
         initialActivity={editingActivity}
         defaultDate={defaultDate}
+        onSubmitStart={(isEditAct, expectedCount, actId) => {
+          if (isEditAct && actId !== undefined) {
+            setEditingActivityId(String(actId));
+          } else {
+            setPendingActivityCount(expectedCount);
+            setExpanded(true);
+          }
+        }}
+        onSubmitEnd={() => {
+          setPendingActivityCount(0);
+          setEditingActivityId(null);
+        }}
         onSuccess={async () => {
           await fetchActivities(true);
           onTaskMutated();
