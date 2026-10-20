@@ -122,44 +122,18 @@ export default function ActivityCalendar({
   const activitiesByDate = useMemo(() => {
     const map = new Map<string, ActivityItem[]>();
 
-    const addActivityToDate = (dateKey: string, act: ActivityItem) => {
-      const existing = map.get(dateKey) || [];
+    for (const act of activities) {
+      const dateStr =
+        extractDateStr(act.start_date) ||
+        extractDateStr(act.target_end_date) ||
+        extractDateStr(act.actual_end_date);
+
+      if (!dateStr) continue;
+
+      const existing = map.get(dateStr) || [];
       if (!existing.some((item) => String(item.id) === String(act.id))) {
         existing.push(act);
-        map.set(dateKey, existing);
-      }
-    };
-
-    for (const act of activities) {
-      const startStr = extractDateStr(act.start_date);
-      const endStr =
-        extractDateStr(act.actual_end_date) ||
-        extractDateStr(act.target_end_date) ||
-        startStr;
-
-      if (!startStr) continue;
-
-      addActivityToDate(startStr, act);
-
-      if (endStr && endStr >= startStr) {
-        const startDate = new Date(`${startStr}T00:00:00`);
-        const endDate = new Date(`${endStr}T00:00:00`);
-        const diffDays = Math.round(
-          (endDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24)
-        );
-
-        if (diffDays > 0 && diffDays <= 31) {
-          for (let i = 1; i <= diffDays; i++) {
-            const cur = new Date(startDate);
-            cur.setDate(startDate.getDate() + i);
-            const key = toDateKey(
-              cur.getFullYear(),
-              cur.getMonth(),
-              cur.getDate()
-            );
-            addActivityToDate(key, act);
-          }
-        }
+        map.set(dateStr, existing);
       }
     }
 

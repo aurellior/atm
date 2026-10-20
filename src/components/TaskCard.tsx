@@ -130,9 +130,13 @@ export default function TaskCard({
   const handleToggleActivityStatus = async (act: ActivityItem) => {
     const nextStatus: ActivityStatus =
       act.complete_status === "DONE" ? "IN_PROGRESS" : "DONE";
+    const actDateStr =
+      toInputDate(act.start_date) ||
+      toInputDate(act.target_end_date) ||
+      getTodayStr();
     const nextActualDate =
       nextStatus === "DONE"
-        ? toInputDate(act.actual_end_date) || getTodayStr()
+        ? toInputDate(act.actual_end_date) || actDateStr
         : null;
 
     // Optimistic UI update — instant feedback without spinner flash

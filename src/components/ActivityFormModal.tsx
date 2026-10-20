@@ -262,9 +262,8 @@ export default function ActivityFormModal({
         localStorage.setItem("atm_last_validator", validatorId);
       }
 
-      const fallbackDate = defaultDate || getTodayStr();
       const finalActualDate =
-        actualDate || (status === "DONE" ? fallbackDate : null);
+        actualDate || (status === "DONE" ? startDate : null);
 
       if (isEdit && initialActivity) {
         await api.editActivity({
