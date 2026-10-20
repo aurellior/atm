@@ -10,6 +10,7 @@ import {
   HolidayItem,
   TaskItem,
 } from "@/types";
+import EmployeeSearchSelect from "@/components/EmployeeSearchSelect";
 import {
   CalendarDays,
   CheckSquare,
@@ -376,30 +377,15 @@ export default function ActivityFormModal({
               />
             </div>
 
-            {/* Validator */}
-            <div>
-              <label className="mb-1.5 block text-xs font-semibold text-slate-700">
-                Validator <span className="text-red-500">*</span>
-              </label>
-              <div className="relative">
-                <select
-                  value={validatorId}
-                  onChange={(e) => setValidatorId(e.target.value)}
-                  required
-                  className="h-11 w-full appearance-none rounded-xl border border-slate-300 bg-white pl-3.5 pr-9 text-slate-900 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-100"
-                >
-                  <option value="" disabled>
-                    -- Pilih Validator --
-                  </option>
-                  {employees.map((emp) => (
-                    <option key={emp.id} value={emp.id}>
-                      {emp.name}
-                    </option>
-                  ))}
-                </select>
-                <ChevronDown className="pointer-events-none absolute right-3 top-3.5 h-4 w-4 text-slate-400" />
-              </div>
-            </div>
+            {/* Validator with Search */}
+            <EmployeeSearchSelect
+              label="Validator"
+              required
+              employees={employees}
+              value={validatorId}
+              onChange={setValidatorId}
+              placeholder="-- Pilih Validator --"
+            />
 
             {/* Type & Status Row */}
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">

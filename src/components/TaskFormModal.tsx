@@ -3,7 +3,8 @@
 import React, { useEffect, useState } from "react";
 import { api } from "@/lib/api";
 import { EmployeeOption, TaskItem } from "@/types";
-import { ChevronDown, ClipboardList, Loader2, X } from "lucide-react";
+import EmployeeSearchSelect from "@/components/EmployeeSearchSelect";
+import { ClipboardList, Loader2, X } from "lucide-react";
 
 interface TaskFormModalProps {
   isOpen: boolean;
@@ -198,29 +199,14 @@ export default function TaskFormModal({
               />
             </div>
 
-            <div>
-              <label className="mb-1.5 block text-xs font-semibold text-slate-700">
-                Pemberi Tugas (Assignor) <span className="text-red-500">*</span>
-              </label>
-              <div className="relative">
-                <select
-                  value={assignorId}
-                  onChange={(e) => setAssignorId(e.target.value)}
-                  required
-                  className="h-11 w-full appearance-none rounded-xl border border-slate-300 bg-white pl-3.5 pr-9 text-slate-900 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-100"
-                >
-                  <option value="" disabled>
-                    -- Pilih Assignor --
-                  </option>
-                  {employees.map((emp) => (
-                    <option key={emp.id} value={emp.id}>
-                      {emp.name}
-                    </option>
-                  ))}
-                </select>
-                <ChevronDown className="pointer-events-none absolute right-3 top-3.5 h-4 w-4 text-slate-400" />
-              </div>
-            </div>
+            <EmployeeSearchSelect
+              label="Pemberi Tugas (Assignor)"
+              required
+              employees={employees}
+              value={assignorId}
+              onChange={setAssignorId}
+              placeholder="-- Pilih Assignor --"
+            />
 
             <div className="grid grid-cols-2 gap-2.5">
               <div className="min-w-0">
