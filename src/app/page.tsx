@@ -73,16 +73,12 @@ export default function HomePage() {
       setProjects(joinedList);
       setEmployees(empList);
 
-      if (joinedList.length > 0) {
-        setSelectedProjectId((prev) => {
-          if (prev && joinedList.some((p) => String(p.id) === prev)) {
-            return prev;
-          }
-          return String(joinedList[0].id);
-        });
-      } else {
-        setSelectedProjectId("");
-      }
+      setSelectedProjectId((prev) => {
+        if (prev && joinedList.some((p) => String(p.id) === prev)) {
+          return prev;
+        }
+        return "";
+      });
     } catch (err) {
       console.error("Gagal memuat data awal:", err);
     } finally {
@@ -210,7 +206,10 @@ export default function HomePage() {
                     key={proj.id}
                     type="button"
                     onClick={() => {
-                      setSelectedProjectId(String(proj.id));
+                      const idStr = String(proj.id);
+                      setSelectedProjectId((prev) =>
+                        prev === idStr ? "" : idStr
+                      );
                       setTaskPage(1);
                     }}
                     className={`flex min-w-[185px] shrink-0 flex-col justify-between rounded-2xl border p-3.5 text-left transition active:scale-[0.98] sm:min-w-[220px] ${
@@ -271,6 +270,19 @@ export default function HomePage() {
         </section>
 
         {/* Active Project Tasks & Activities Workspace */}
+        {!activeProject && !loadingProjects && projects.length > 0 && (
+          <div className="mt-5 rounded-2xl border border-dashed border-slate-300 bg-white/70 p-6 text-center sm:mt-6">
+            <Briefcase className="mx-auto h-7 w-7 text-slate-400" />
+            <p className="mt-2 text-xs font-bold text-slate-700 sm:text-sm">
+              Pilih salah satu Project di atas
+            </p>
+            <p className="mt-0.5 text-[11px] text-slate-500 sm:text-xs">
+              Ketuk kartu project untuk melihat dan mengelola daftar Task &
+              Activity.
+            </p>
+          </div>
+        )}
+
         {activeProject && (
           <section className="mt-5 sm:mt-6">
             <div className="flex items-center justify-between gap-2">
