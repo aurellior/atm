@@ -77,7 +77,7 @@ export default function ActivityFormModal({
   const [name, setName] = useState("");
   const [validatorId, setValidatorId] = useState("");
   const [typeId, setTypeId] = useState("2");
-  const [status, setStatus] = useState<ActivityStatus>("IN_PROGRESS");
+  const [status, setStatus] = useState<ActivityStatus>("DONE");
   const [startDate, setStartDate] = useState(getTodayStr());
   const [targetDate, setTargetDate] = useState(getTodayStr());
   const [actualDate, setActualDate] = useState("");
@@ -167,7 +167,7 @@ export default function ActivityFormModal({
       setName("");
       setValidatorId(getDefaultValidator());
       setTypeId("2");
-      setStatus("IN_PROGRESS");
+      setStatus("DONE");
       setStartDate(taskStart);
       setTargetDate(taskStart);
       setActualDate("");
