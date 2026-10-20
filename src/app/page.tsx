@@ -557,7 +557,6 @@ export default function HomePage() {
         projectName={activeProject?.name}
         employees={employees}
         initialTask={editingTask}
-        defaultDate={selectedCalendarDate}
         onSuccess={handleDataMutated}
       />
     </div>

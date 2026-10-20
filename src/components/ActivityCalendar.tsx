@@ -648,10 +648,11 @@ export default function ActivityCalendar({
                         <p className="font-semibold text-slate-900 leading-snug">
                           {act.name}
                         </p>
-                        <p className="mt-0.5 truncate text-[11px] text-slate-500">
-                          {act.project_name ? `${act.project_name} • ` : ""}
-                          {act.task_name || act.task?.name || ""}
-                        </p>
+                        {act.project_name && (
+                          <p className="mt-0.5 truncate text-[11px] text-slate-500">
+                            {act.project_name}
+                          </p>
+                        )}
                       </div>
                     </div>
                     <span
