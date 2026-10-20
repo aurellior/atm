@@ -364,42 +364,22 @@ export default function ActivityCalendar({
         </div>
       </div>
 
-      {/* Month Summary Pills & Legend */}
-      <div className="mt-3 flex flex-wrap items-center justify-between gap-2 border-y border-slate-100 py-2 text-[11px] sm:text-xs">
-        <div className="flex flex-wrap items-center gap-1.5">
-          <span className="inline-flex items-center gap-1 rounded-lg bg-emerald-50 px-2 py-0.5 font-semibold text-emerald-700">
-            <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
-            {calendarData.filledDaysCount} Terisi
+      {/* Month Summary Pills */}
+      <div className="mt-3 flex flex-wrap items-center gap-1.5 border-y border-slate-100 py-2 text-[11px] sm:text-xs">
+        <span className="inline-flex items-center gap-1 rounded-lg bg-emerald-50 px-2 py-0.5 font-semibold text-emerald-700">
+          <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
+          {calendarData.filledDaysCount} Terisi
+        </span>
+        <span className="inline-flex items-center gap-1 rounded-lg bg-slate-100 px-2 py-0.5 font-semibold text-slate-600">
+          <span className="h-1.5 w-1.5 rounded-full border border-dashed border-slate-400 bg-white" />
+          {calendarData.emptyWorkdaysCount} Hari Kerja Kosong
+        </span>
+        {calendarData.offDaysCount > 0 && (
+          <span className="inline-flex items-center gap-1 rounded-lg bg-rose-50 px-2 py-0.5 font-semibold text-rose-700">
+            <span className="h-1.5 w-1.5 rounded-full bg-rose-500" />
+            {calendarData.offDaysCount} Libur / Cuti
           </span>
-          <span className="inline-flex items-center gap-1 rounded-lg bg-slate-100 px-2 py-0.5 font-semibold text-slate-600">
-            <span className="h-1.5 w-1.5 rounded-full border border-dashed border-slate-400 bg-white" />
-            {calendarData.emptyWorkdaysCount} Hari Kerja Kosong
-          </span>
-          {calendarData.offDaysCount > 0 && (
-            <span className="inline-flex items-center gap-1 rounded-lg bg-rose-50 px-2 py-0.5 font-semibold text-rose-700">
-              <span className="h-1.5 w-1.5 rounded-full bg-rose-500" />
-              {calendarData.offDaysCount} Libur / Cuti
-            </span>
-          )}
-        </div>
-
-        {/* GitHub-style Color Legend */}
-        <div className="flex flex-wrap items-center gap-1 text-[10px] text-slate-400 sm:text-[11px]">
-          <span className="inline-flex items-center gap-1 mr-1 text-rose-600 font-medium">
-            <span className="h-2.5 w-2.5 rounded border border-rose-200 bg-rose-50" />
-            Libur
-          </span>
-          <span className="inline-flex items-center gap-1 mr-1.5 text-amber-700 font-medium">
-            <span className="h-2.5 w-2.5 rounded border border-amber-200 bg-amber-50" />
-            Cuti
-          </span>
-          <span>Kosong</span>
-          <span className="h-3 w-3 rounded border border-dashed border-slate-300 bg-slate-50" />
-          <span className="h-3 w-3 rounded border border-emerald-300 bg-emerald-100" />
-          <span className="h-3 w-3 rounded border border-emerald-400 bg-emerald-300" />
-          <span className="h-3 w-3 rounded border border-emerald-700 bg-emerald-600" />
-          <span>Banyak</span>
-        </div>
+        )}
       </div>
 
       {/* Calendar Grid (7 Columns: Sen..Min) */}
@@ -533,6 +513,26 @@ export default function ActivityCalendar({
               );
             }
           )}
+        </div>
+      </div>
+
+      {/* GitHub-style Color Legend (Bottom-Right) */}
+      <div className="mt-2.5 flex items-center justify-end">
+        <div className="flex flex-wrap items-center gap-1 text-[10px] text-slate-400 sm:text-[11px]">
+          <span className="inline-flex items-center gap-1 mr-1 text-rose-600 font-medium">
+            <span className="h-2.5 w-2.5 rounded border border-rose-200 bg-rose-50" />
+            Libur
+          </span>
+          <span className="inline-flex items-center gap-1 mr-1.5 text-amber-700 font-medium">
+            <span className="h-2.5 w-2.5 rounded border border-amber-200 bg-amber-50" />
+            Cuti
+          </span>
+          <span>Kosong</span>
+          <span className="h-3 w-3 rounded border border-dashed border-slate-300 bg-slate-50" />
+          <span className="h-3 w-3 rounded border border-emerald-300 bg-emerald-100" />
+          <span className="h-3 w-3 rounded border border-emerald-400 bg-emerald-300" />
+          <span className="h-3 w-3 rounded border border-emerald-700 bg-emerald-600" />
+          <span>Banyak</span>
         </div>
       </div>
 
