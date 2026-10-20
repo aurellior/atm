@@ -113,17 +113,18 @@ export default function TaskCard({
   }, [expanded, fetchActivities, hasLoadedOnce]);
 
   const getDefaultValidatorId = useCallback(() => {
-    if (typeof window !== "undefined") {
-      const saved = localStorage.getItem("atm_last_validator");
-      if (saved && employees.some((e) => String(e.id) === saved)) {
-        return saved;
-      }
-    }
+    // Prioritas utama: selalu mengikuti assignor dari Task induknya
     if (
       task.assignor_id &&
       employees.some((e) => String(e.id) === String(task.assignor_id))
     ) {
       return String(task.assignor_id);
+    }
+    if (typeof window !== "undefined") {
+      const saved = localStorage.getItem("atm_last_validator");
+      if (saved && employees.some((e) => String(e.id) === saved)) {
+        return saved;
+      }
     }
     return employees[0] ? String(employees[0].id) : "";
   }, [employees, task.assignor_id]);
