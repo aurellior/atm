@@ -20,7 +20,6 @@ import {
   FolderPlus,
   Loader2,
   Plus,
-  Search,
 } from "lucide-react";
 
 export default function HomePage() {
@@ -37,10 +36,6 @@ export default function HomePage() {
 
   const [loadingProjects, setLoadingProjects] = useState(true);
   const [loadingTasks, setLoadingTasks] = useState(false);
-
-  // Filters for tasks
-  const [searchQuery, setSearchQuery] = useState("");
-  const [statusFilter, setStatusFilter] = useState<string>("");
 
   // Modals
   const [isJoinModalOpen, setIsJoinModalOpen] = useState(false);
@@ -96,8 +91,6 @@ export default function HomePage() {
     setLoadingTasks(true);
     try {
       const res = await api.getTasksByProject(selectedProjectId, {
-        search: searchQuery,
-        progress: statusFilter,
         limit: 50,
       });
       setTasks(res.tasks);
@@ -106,7 +99,7 @@ export default function HomePage() {
     } finally {
       setLoadingTasks(false);
     }
-  }, [selectedProjectId, searchQuery, statusFilter]);
+  }, [selectedProjectId]);
 
   // Refresh project progress, tasks, and contribution calendar when task/activity changes
   const handleDataMutated = useCallback(async () => {
@@ -288,41 +281,6 @@ export default function HomePage() {
                 <Plus className="h-4 w-4" />
                 Tambah Task Baru
               </button>
-            </div>
-
-            {/* Search & Quick Filter Bar */}
-            <div className="mt-4 flex flex-col gap-2.5 sm:flex-row">
-              <div className="relative flex-1">
-                <Search className="pointer-events-none absolute left-3.5 top-2.5 h-4 w-4 text-slate-400" />
-                <input
-                  type="text"
-                  placeholder="Cari nama task atau assignor..."
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  className="w-full rounded-xl border border-slate-200 bg-white py-2 pl-9 pr-3.5 text-xs text-slate-900 placeholder:text-slate-400 focus:border-brand-500 focus:outline-none sm:text-sm"
-                />
-              </div>
-
-              <div className="flex gap-1.5">
-                {[
-                  { label: "Semua", value: "" },
-                  { label: "In Progress", value: "in progress" },
-                  { label: "Selesai", value: "complete" },
-                ].map((tab) => (
-                  <button
-                    key={tab.value}
-                    type="button"
-                    onClick={() => setStatusFilter(tab.value)}
-                    className={` flex-1 rounded-xl border px-3 py-2 text-xs font-semibold transition sm:flex-none ${
-                      statusFilter === tab.value
-                        ? "border-slate-900 bg-slate-900 text-white"
-                        : "border-slate-200 bg-white text-slate-600 hover:bg-slate-50"
-                    }`}
-                  >
-                    {tab.label}
-                  </button>
-                ))}
-              </div>
             </div>
 
             {/* Task List (Expandable Cards) */}
