@@ -12,8 +12,12 @@ export const viewport: Viewport = {
 };
 
 export const metadata: Metadata = {
-  title: "Activity Tracker - Simple Workspace",
+  title: "Activity Tracker",
   description: "Simple & Mobile-Friendly Activity Tracker Management",
+  icons: {
+    icon: "/favicon.ico",
+    shortcut: "/favicon.ico",
+  },
 };
 
 export default function RootLayout({
