@@ -477,9 +477,7 @@ export default function ActivityFormModal({
                   onChange={(e) => {
                     const nextStart = e.target.value;
                     setStartDate(nextStart);
-                    if (targetDate && nextStart > targetDate) {
-                      setTargetDate(nextStart);
-                    }
+                    setTargetDate(nextStart);
                   }}
                   required
                   className="h-11 w-full min-w-0 rounded-xl border border-slate-300 bg-white px-3 text-slate-900 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-100"
