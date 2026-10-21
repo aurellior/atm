@@ -510,6 +510,7 @@ export default function HomePage() {
                         task={task}
                         employees={employees}
                         defaultExpanded={idx === 0 && taskPage === 1}
+                        defaultDate={selectedCalendarDate}
                         onEditTask={(t) => {
                           setEditingTask(t);
                           setIsTaskModalOpen(true);

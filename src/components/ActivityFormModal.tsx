@@ -172,12 +172,13 @@ export default function ActivityFormModal({
         Boolean(initialActivity.notes || initialActivity.actual_end_date)
       );
     } else {
+      const initialDate = defaultDate || taskStart;
       setName("");
       setValidatorId(getDefaultValidator());
       setTypeId("2");
       setStatus("DONE");
-      setStartDate(taskStart);
-      setTargetDate(taskStart);
+      setStartDate(initialDate);
+      setTargetDate(initialDate);
       setActualDate("");
       setNotes("");
       setShowMore(false);
@@ -189,6 +190,7 @@ export default function ActivityFormModal({
   }, [
     isOpen,
     initialActivity,
+    defaultDate,
     employees,
     task.assignor_id,
     task.start_date,
