@@ -20,9 +20,35 @@ async function handleAuthRequest(
   const pathSegments = context.params.path || [];
   const subPath = "/" + pathSegments.join("/");
 
+  // POST /api/auth/logout
+  if (req.method === "POST" && subPath === "/logout") {
+    const res = NextResponse.json(
+      { message: "Logged out successfully" },
+      { status: 200 }
+    );
+    res.cookies.delete("atm_token");
+    return res;
+  }
+
   // If DATABASE_URL is not configured yet, proxy server-to-server to remote backend (zero CORS!)
   if (!isLocalDatabaseConfigured()) {
-    return proxyToRemoteBackend(req, `/auth${subPath}`);
+    const proxiedRes = await proxyToRemoteBackend(req, `/auth${subPath}`);
+    if (req.method === "POST" && subPath === "/login" && proxiedRes.ok) {
+      try {
+        const cloned = await proxiedRes.clone().json();
+        const remoteToken = cloned?.data?.employee?.token;
+        if (remoteToken) {
+          proxiedRes.cookies.set("atm_token", remoteToken, {
+            path: "/",
+            maxAge: 60 * 60 * 24,
+            sameSite: "lax",
+          });
+        }
+      } catch {
+        // ignore JSON parse error
+      }
+    }
+    return proxiedRes;
   }
 
   try {
@@ -88,7 +114,13 @@ async function handleAuthRequest(
         },
       });
 
-      return NextResponse.json({ data: result }, { status: 200 });
+      const res = NextResponse.json({ data: result }, { status: 200 });
+      res.cookies.set("atm_token", token, {
+        path: "/",
+        maxAge: 60 * 60 * 24,
+        sameSite: "lax",
+      });
+      return res;
     }
 
     // GET /api/auth/me

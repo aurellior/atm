@@ -20,7 +20,10 @@ export function createToken(payload: { id: string | bigint | number }): string {
 }
 
 export function verifyRequestToken(req: NextRequest): { id: string } {
-  const rawHeader = req.headers.get("authorization") || "";
+  const rawHeader =
+    req.headers.get("authorization") ||
+    req.cookies.get("atm_token")?.value ||
+    "";
   const token = rawHeader.startsWith("Bearer ")
     ? rawHeader.slice(7).trim()
     : rawHeader.trim();

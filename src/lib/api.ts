@@ -47,6 +47,14 @@ async function apiFetch<T>(
   const data = await response.json().catch(() => ({}));
 
   if (!response.ok) {
+    if (
+      (response.status === 401 || response.status === 403) &&
+      !endpoint.startsWith("/api/auth/login") &&
+      typeof window !== "undefined"
+    ) {
+      window.dispatchEvent(new Event("atm:unauthorized"));
+    }
+
     const errorMessage =
       data?.message || data?.error || `Request gagal (${response.status})`;
     throw new Error(errorMessage);

@@ -21,7 +21,8 @@ export async function proxyToRemoteBackend(
   const targetUrl = `${baseUrl}${targetPath}${search}`;
 
   const headers: Record<string, string> = {};
-  const auth = req.headers.get("authorization");
+  const auth =
+    req.headers.get("authorization") || req.cookies.get("atm_token")?.value;
   if (auth) {
     headers["Authorization"] = auth;
   }

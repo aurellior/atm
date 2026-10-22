@@ -10,7 +10,10 @@ import { getRemoteApiUrl, proxyToRemoteBackend } from "@/server/proxy";
 export const dynamic = "force-dynamic";
 
 async function handleRemoteCalendarAggregation(req: NextRequest) {
-  const auth = req.headers.get("authorization") || "";
+  const auth =
+    req.headers.get("authorization") ||
+    req.cookies.get("atm_token")?.value ||
+    "";
   const baseUrl = getRemoteApiUrl();
   const headers: Record<string, string> = {
     "Content-Type": "application/json",
